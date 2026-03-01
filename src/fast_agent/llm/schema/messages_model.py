@@ -51,6 +51,8 @@ class ImagePart(BasePart):
 
 class UserMessage(BaseMessage):
     """UserMessage 用户消息类"""
+    id: str = Field(default_factory=lambda: f"user_{str(uuid.uuid4().hex[:16])}")
+
     role: Literal['user'] = 'user'
 
     content: Union[str, List[BasePart]]
@@ -59,16 +61,18 @@ class UserMessage(BaseMessage):
 
 class ToolCall(BaseModel):
     """ToolCall 大模型工具调用请求类"""
-    # 工具调用唯一 ID，用于与后续的工具调用结果进行关联（为兼容无ID的情况，设置自动生成）
-    id: str = Field(default_factory=lambda: f"call_{str(uuid.uuid4().hex[:16])}")
-
     type: Literal['tool_call'] = 'tool_call'
+
+    # 工具调用唯一 ID，用于与后续的工具调用结果进行关联（为兼容无ID的情况，设置自动生成）
+    tool_call_id: str = Field(default_factory=lambda: f"call_{str(uuid.uuid4().hex[:16])}")
 
     function_name: str
     function_args: Dict[str, Any]
 
 class AssistantMessage(BaseMessage):
     """AssistantMessage AI 消息类"""
+    id: str = Field(default_factory=lambda: f"assistant_{str(uuid.uuid4().hex[:16])}")
+
     role: Literal['assistant'] = 'assistant'
 
     reasoning_content: Optional[str] = None
@@ -90,6 +94,8 @@ class AssistantMessage(BaseMessage):
 
 class ToolResultMessage(BaseMessage):
     """ToolResultMessage 工具调用结果消息类"""
+    id: str = Field(default_factory=lambda: f"tool-result_{str(uuid.uuid4().hex[:16])}")
+
     role: Literal['tool_result'] = 'tool_result'
 
     tool_call_id: str
