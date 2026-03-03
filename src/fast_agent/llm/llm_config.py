@@ -9,6 +9,7 @@ class LLMConfig(BaseModel):
         - model: 模型名称
         - api_key: API 密钥
         - base_url: API 基础 URL
+        - provider: 模型提供商（如 "openai"、"anthropic"、"google"、"deepseek" 等）
 
     - 模型生成配置
         - temperature: 采样温度
@@ -39,6 +40,7 @@ class LLMConfig(BaseModel):
     model_name: str
     api_key: str
     base_url: str
+    provider: str
 
     # 模型生成配置
     temperature: float = 0.7

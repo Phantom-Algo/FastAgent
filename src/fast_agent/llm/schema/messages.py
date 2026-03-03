@@ -18,6 +18,9 @@ class Messages:
     def add_message(self, message: BaseMessage) -> None:
         self.messages.append(message)
 
+    def add_messages(self, new_messages: List[BaseMessage]) -> None:
+        self.messages.extend(new_messages)
+
     # === 删 ===
     def remove_message_by_id(self, id: str) -> Optional[BaseMessage]:
         for index, message in enumerate(self.messages):

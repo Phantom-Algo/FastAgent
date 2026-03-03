@@ -83,6 +83,12 @@ class AssistantMessage(BaseMessage):
 
     refusal: Optional[str] = None
 
+    finish_reason: Literal["unknown", "stop", "length", "tool_calls", "content_filter", "balance", "error"] = "unknown"
+
+    token_usage: Optional[int] = None
+
+    model: Optional[str] = None
+
     @model_validator(mode='after')
     def check_content_or_tools(self):
         """确保消息中至少有文本或者工具调用之一，避免空消息"""

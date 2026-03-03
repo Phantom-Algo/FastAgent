@@ -1,5 +1,4 @@
-from pydantic import BaseModel
-from typing import Optional, Union, List
+from typing import Optional, Union, List, Dict, Any
 from .schema import SystemPrompt, Messages, Tools, BaseMessage
 from fast_agent.tool import BaseTool
 from copy import deepcopy
@@ -21,10 +20,13 @@ class Context:
         self,
         system_prompt: Optional[Union[SystemPrompt, str]] = None,
         work_messages: Optional[Union[Messages, List[BaseMessage]]] = None,
-        tools: Optional[Union[Tools, List[BaseTool]]] = None
+        tools: Optional[Union[Tools, List[BaseTool]]] = None,
+        tool_inject_params: Optional[Dict[str, Any]] = None
     ):
         # 初始化 system_prompt
-        if isinstance(system_prompt, str):
+        if system_prompt is None:
+            self.system_prompt = SystemPrompt(content="")
+        elif isinstance(system_prompt, str):
             self.system_prompt = SystemPrompt(content=system_prompt)
         elif isinstance(system_prompt, SystemPrompt):
             self.system_prompt = system_prompt
@@ -47,16 +49,45 @@ class Context:
         self.raw_messages = deepcopy(self.work_messages)
 
 
-        # 初始化 subsquent_messages
-        self.subsquent_messages: List[BaseMessage] = []
+        # 初始化 subsequent_messages
+        self.subsequent_messages: List[BaseMessage] = []
 
 
         # 初始化 tools
         if tools is None:
-            pass
+            self.tools = Tools(tools=[])
         elif isinstance(tools, list):
-            pass
+            self.tools = Tools(tools=tools)
         elif isinstance(tools, Tools):
             self.tools = tools
         else:
             raise ValueError("tools must be a list of BaseTool or Tools instance")
+
+        # 初始化 tool_inject_params
+        self.tool_inject_params = tool_inject_params or {}
+
+    
+    # ===== 工具参数注入 API =====
+    def get_tool_inject_params(self) -> Dict[str, Any]:
+        return self.tool_inject_params
+
+    def get_tool_inject_param(self, key: str, default: Any = None) -> Any:
+        return self.tool_inject_params.get(key, default)
+
+    def set_tool_inject_param(self, key: str, value: Any) -> None:
+        self.tool_inject_params[key] = value
+
+    def set_tool_inject_params(self, params: Dict[str, Any]) -> None:
+        self.tool_inject_params = dict(params)
+
+    def update_tool_inject_params(self, params: Dict[str, Any]) -> None:
+        self.tool_inject_params.update(params)
+
+    def remove_tool_inject_param(self, key: str, default: Any = None) -> Any:
+        return self.tool_inject_params.pop(key, default)
+
+    def clear_tool_inject_params(self) -> None:
+        self.tool_inject_params.clear()
+
+    def has_tool_inject_param(self, key: str) -> bool:
+        return key in self.tool_inject_params
