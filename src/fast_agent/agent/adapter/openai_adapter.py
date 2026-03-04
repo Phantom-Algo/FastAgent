@@ -310,12 +310,14 @@ class OpenAIAdapter(IAdapter):
             if not function_name:
                 continue
 
-            tool_calls.append(
-                ToolCall(
-                    tool_call_id=item.get("id") or None,
-                    function_name=function_name,
-                    function_args=self._safe_json_loads(item.get("arguments")),
-                )
-            )
+            tool_call_payload = {
+                "function_name": function_name,
+                "function_args": self._safe_json_loads(item.get("arguments")),
+            }
+            tool_call_id = item.get("id")
+            if tool_call_id:
+                tool_call_payload["tool_call_id"] = tool_call_id
+
+            tool_calls.append(ToolCall(**tool_call_payload))
 
         return tool_calls

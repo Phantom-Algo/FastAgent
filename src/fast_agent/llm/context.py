@@ -91,3 +91,19 @@ class Context:
 
     def has_tool_inject_param(self, key: str) -> bool:
         return key in self.tool_inject_params
+    
+    # ===== messages 管理 API =====
+    def add_raw_message(self, message: BaseMessage) -> None:
+        raw_message = deepcopy(message)
+        self.raw_messages.add_message(raw_message)
+        self.subsequent_messages.append(message)
+
+    def add_raw_messages(self, messages: List[BaseMessage]) -> None:
+        for message in messages:
+            self.add_raw_message(message)
+
+    def add_work_message(self, message: BaseMessage) -> None:
+        self.work_messages.add_message(message)
+
+    def add_work_messages(self, messages: List[BaseMessage]) -> None:
+        self.work_messages.add_messages(messages)

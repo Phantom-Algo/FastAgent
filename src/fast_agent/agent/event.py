@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, model_validator, ConfigDict
 from typing import Any, Literal, Dict, Optional, List
 from fast_agent.llm import ToolCall, ToolResultMessage, LLMConfig, Context
+from .snapshot import Snapshot
 import time
 import uuid
 
@@ -100,3 +101,15 @@ class ToolsExecutedEvent(BaseEvent):
         tool_results: List[ToolResultMessage]
 
     data: ToolsExecutedEventData
+
+
+class InterruptEvent(BaseEvent):
+    """InterruptEvent 中断事件"""
+    type: Literal["interrupt"] = "interrupt"
+
+    class InterruptEventData(BaseModel):
+        reason: Optional[str] = None
+
+        snapshot: Snapshot
+
+    data: InterruptEventData
