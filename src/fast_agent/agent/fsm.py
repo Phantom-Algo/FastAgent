@@ -178,12 +178,12 @@ class AgentFSM:
         优先使用检查点上下文（确保快照中的上下文未被当前状态部分修改）。
         """
         return Snapshot(
-            llm_config=deepcopy(self.agent.llm_config),
-            context=deepcopy(self.agent.context),
-            lifespan=deepcopy(self.agent.lifespan),
-            user_input=deepcopy(self.user_input),
-            llm_output=deepcopy(self.llm_output),
-            tool_results=deepcopy(self.tool_results) if self.tool_results is not None else None,
+            llm_config=self.agent.llm_config,
+            context=self.agent.context,
+            lifespan=self.agent.lifespan,
+            user_input=self.user_input,
+            llm_output=self.llm_output,
+            tool_results=self.tool_results if self.tool_results is not None else None,
             status=status,
         )
 

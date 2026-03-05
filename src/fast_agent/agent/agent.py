@@ -101,17 +101,17 @@ class Agent:
         - snapshot: Snapshot 包含之前 Agent 状态的快照对象
         """
         # 恢复 Agent 状态
-        self.llm_config = deepcopy(snapshot.llm_config)
-        self.context = deepcopy(snapshot.context)
-        self.lifespan = deepcopy(snapshot.lifespan)
+        self.llm_config = snapshot.llm_config
+        self.context = snapshot.context
+        self.lifespan = snapshot.lifespan
 
         # 从 snapshot 中恢复 FSM
         fsm = AgentFSM(
             agent=self,
             initial_state=self._get_initial_state_by_snapshot(snapshot),
-            user_input=deepcopy(snapshot.user_input),
-            llm_output=deepcopy(snapshot.llm_output),
-            tool_results=deepcopy(snapshot.tool_results),
+            user_input=snapshot.user_input,
+            llm_output=snapshot.llm_output,
+            tool_results=snapshot.tool_results,
         )
         self._current_fsm = fsm
         try:
