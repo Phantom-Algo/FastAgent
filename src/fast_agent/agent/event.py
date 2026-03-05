@@ -4,6 +4,12 @@ from fast_agent.llm import ToolCall, ToolResultMessage, LLMConfig, Context
 from .snapshot import Snapshot
 import time
 import uuid
+import asyncio
+
+
+class EventChannelClosed(Exception):
+    """EventChannel 已关闭，无法继续收发事件。"""
+    pass
 
 class BaseEventMetadata(BaseModel):
     """BaseEventMetadata 事件元数据基类"""
@@ -113,3 +119,44 @@ class InterruptEvent(BaseEvent):
         snapshot: Snapshot
 
     data: InterruptEventData
+
+
+# ===== Event传输通道 =====
+class EventChannel:
+    """EventChannel 事件传输通道"""
+    def __init__(self):
+        self.event_queue = asyncio.Queue()
+        self._close_sentinel = object()
+        self._closed = False
+
+    async def send_event(self, event: BaseEvent) -> None:
+        """发送事件到通道"""
+        if self._closed:
+            raise EventChannelClosed("EventChannel is closed, cannot send event.")
+        await self.event_queue.put(event)
+
+    async def receive_event(self) -> BaseEvent:
+        """从通道接收事件（阻塞）"""
+        event = await self.event_queue.get()
+
+        if event is self._close_sentinel:
+            self.event_queue.task_done()
+            raise EventChannelClosed("EventChannel is closed.")
+
+        return event
+
+    def close(self) -> None:
+        """关闭事件通道（幂等）。"""
+        if self._closed:
+            return
+        self._closed = True
+        self.event_queue.put_nowait(self._close_sentinel)
+
+    @property
+    def is_closed(self) -> bool:
+        """事件通道是否已关闭。"""
+        return self._closed
+    
+    def task_done(self):
+        """标记事件处理完成"""
+        self.event_queue.task_done()

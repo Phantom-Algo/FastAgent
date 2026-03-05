@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Any, Optional, List, Union, Literal
 from fast_agent.llm import LLMConfig, Context, UserMessage, AssistantMessage, ToolResultMessage, ToolCall
+from .event import EventChannel
 import asyncio
 
 # ======= 生命周期类型枚举 =======
@@ -27,6 +28,7 @@ class BaseLifespanData:
 
     llm_config: LLMConfig
     context: Context
+    event_channel: EventChannel
     kwargs: Dict[str, Any] = field(default_factory=dict)
 
     def get_kwarg(self, key: str, default: Any = None) -> Any:
@@ -70,6 +72,7 @@ class BaseLifespanData:
             llm_config=agent.llm_config,
             context=agent.context,
             kwargs=agent.lifespan.kwargs,
+            event_channel=agent.event_channel,
             **extra_fields,
         )
 

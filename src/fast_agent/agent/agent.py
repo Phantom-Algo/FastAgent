@@ -39,9 +39,12 @@ from .event import (
     RoundStopEvent,
     ToolsExecutedEvent,
     InterruptEvent,
+    EventChannel,
+    EventChannelClosed,
 )
 from typing import Optional, AsyncGenerator
 from copy import deepcopy
+import asyncio
 
 
 class Agent:
@@ -81,17 +84,16 @@ class Agent:
         创建状态机并从 AfterUserInputState 开始执行，逐个产出事件流。
         支持在运行期间通过 request_interrupt() 进行中断。
         """
+        # 每次 stream 都使用全新通道
+        self.event_channel = EventChannel()
+
         fsm = AgentFSM(
             agent=self,
             initial_state=AfterUserInputState(),
             user_input=user_input,
         )
-        self._current_fsm = fsm
-        try:
-            async for event in fsm.run():
-                yield event
-        finally:
-            self._current_fsm = None
+        async for event in self._stream_unified_channel(fsm):
+            yield event
 
     async def resume_stream(self, snapshot: Snapshot) -> AsyncGenerator[BaseEvent, None]:
         """
@@ -105,6 +107,9 @@ class Agent:
         self.context = snapshot.context
         self.lifespan = snapshot.lifespan
 
+        # run-scope 事件通道：每次 resume_stream 都使用全新通道
+        self.event_channel = EventChannel()
+
         # 从 snapshot 中恢复 FSM
         fsm = AgentFSM(
             agent=self,
@@ -113,11 +118,65 @@ class Agent:
             llm_output=snapshot.llm_output,
             tool_results=snapshot.tool_results,
         )
+
+        async for event in self._stream_unified_channel(fsm):
+            yield event
+
+    async def _stream_unified_channel(self, fsm: AgentFSM) -> AsyncGenerator[BaseEvent, None]:
+        """统一执行 FSM 与 EventChannel 事件合流输出。"""
         self._current_fsm = fsm
+
+        output_queue: asyncio.Queue = asyncio.Queue()
+        fsm_done = False
+        channel_done = False
+        fsm_done_marker = object()
+        channel_done_marker = object()
+
+        async def _fsm_pump() -> None:
+            nonlocal fsm_done
+            try:
+                async for event in fsm.run():
+                    await output_queue.put(event)
+            finally:
+                fsm_done = True
+                self.event_channel.close()
+                await output_queue.put(fsm_done_marker)
+
+        async def _channel_pump() -> None:
+            nonlocal channel_done
+            try:
+                while True:
+                    event = await self.event_channel.receive_event()
+                    await output_queue.put(event)
+                    self.event_channel.task_done()
+            except EventChannelClosed:
+                pass
+            finally:
+                channel_done = True
+                await output_queue.put(channel_done_marker)
+
+        fsm_task = asyncio.create_task(_fsm_pump())
+        channel_task = asyncio.create_task(_channel_pump())
+
         try:
-            async for event in fsm.run():
-                yield event
+            while True:
+                item = await output_queue.get()
+
+                if item is fsm_done_marker or item is channel_done_marker:
+                    if fsm_done and channel_done and output_queue.empty():
+                        break
+                    continue
+
+                yield item
         finally:
+            self.event_channel.close()
+
+            for task in (fsm_task, channel_task):
+                if not task.done():
+                    task.cancel()
+
+            # 等待两个 pump 任务结束，确保资源清理完毕
+            await asyncio.gather(fsm_task, channel_task, return_exceptions=True)
             self._current_fsm = None
 
     # ===== 中断控制 API =====

@@ -1,9 +1,13 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, Field, ConfigDict
 from fast_agent.llm import LLMConfig, Context, ToolCall, AssistantMessage, UserMessage, ToolResultMessage
-from .lifespan import Lifespan
 from .state import AgentState
-from typing import Optional, List
+from typing import Optional, List, TYPE_CHECKING
 import uuid
+
+if TYPE_CHECKING:
+    from .lifespan import Lifespan
 
 
 class Snapshot(BaseModel):
@@ -24,7 +28,7 @@ class Snapshot(BaseModel):
     id: str = Field(default_factory=lambda: f"snapshot_{uuid.uuid4().hex[:16]}")
     llm_config: LLMConfig
     context: Context
-    lifespan: Lifespan
+    lifespan: "Lifespan"
     user_input: Optional[UserMessage] = None
     llm_output: Optional[AssistantMessage] = None
     tool_results: Optional[List[ToolResultMessage]] = None
