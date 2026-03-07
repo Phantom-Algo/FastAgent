@@ -1,9 +1,9 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, Any, Optional, List, Union, Literal
+from typing import Dict, Any, Optional, List, Union, Literal, Tuple
 from fast_agent.llm import LLMConfig, Context, UserMessage, AssistantMessage, ToolResultMessage, ToolCall
-from fast_agent.tool import ToolRuntime, HumanReviewChannel
+from fast_agent.tool import ToolRuntime, HumanReviewChannel, BaseTool, ToolCallGuardTriggered, GuardRequestSchema, GuardTriggeredToolCallContext
 from .event import EventChannel
 import asyncio
 
@@ -163,8 +163,9 @@ class InputExecutingTools(BaseLifespanData):
     InputExecutingTools 生命周期数据传输对象
     包含 executing_tools 生命周期方法所需的参数（工具执行阶段，可多次触发）
     """
-
     llm_output: Optional[AssistantMessage] = None
+    finished_tool_calls: List[ToolCall] = field(default_factory=list)  # 已完成工具调用列表
+    human_response: Optional[Dict[str, GuardRequestSchema]] = None  # 人类响应数据, key 为 tool_call_id，value为响应内容
 
 
 @dataclass
@@ -401,7 +402,7 @@ class ExecutingTools(IExecutingTools):
                     context=data.context,
                     llm_output=llm_output,
                     human_review_channel=HumanReviewChannel(
-                        event_channel=EventChannel()
+                        event_channel=data.event_channel,
                     ),
                     human_review_timeout=tool.human_review_timeout,
                     kwargs=data.kwargs,
@@ -427,9 +428,38 @@ class ExecutingTools(IExecutingTools):
                     content=f"工具 `{tool.name}` 调用失败，请基于已有信息继续回答。",
                     is_error=False
                 )
+            
+        # 过滤
+        passed_calls, filtered_calls, rejected_calls = self._filter_tool_calls_by_guard(tool_calls, tools_by_name, data.human_response)
 
         # gather 返回结果顺序与传入顺序一致，可同时执行异步/同步工具调用
-        tool_results = await asyncio.gather(*[_run_single_tool_call(tool_call) for tool_call in tool_calls])
+        # TODO:处理一些工具 raise 异常的边缘情况 
+        tool_results = await asyncio.gather(*[_run_single_tool_call(tool_call) for tool_call in passed_calls]) if passed_calls else []
+
+        # rejected_calls 需要封装成 ToolResultMessage 返回给 LLM，供后续处理
+        for rejected_call in rejected_calls:
+            tool = tools_by_name.get(rejected_call.function_name)
+            reject_response_func = tool.reject_response if tool and tool.reject_response else lambda a: ToolResultMessage(
+                tool_call_id=rejected_call.tool_call_id,
+                name=rejected_call.function_name,
+                content=f"工具 `{rejected_call.function_name}` 调用被拒绝。",
+                is_error=False
+            )
+            tool_results.append(reject_response_func(data.human_response.get(rejected_call.tool_call_id)))
+
+        # filtered_calls 需发起人工审核请求
+        if filtered_calls:
+            raise ToolCallGuardTriggered(
+                "Toolcall guard has been triggered",
+                contexts=[
+                    GuardTriggeredToolCallContext(
+                        tool_call=tool_call,
+                        tool=tools_by_name.get(tool_call.function_name),
+                    )
+                    for tool_call in filtered_calls
+                ],
+                finished_tool_calls=data.finished_tool_calls.extend(passed_calls)
+            )
 
         return OutputExecutingTools(
             llm_config=data.llm_config,
@@ -439,6 +469,47 @@ class ExecutingTools(IExecutingTools):
             kwargs=data.kwargs
         )
     
+    def _filter_tool_calls_by_guard(
+        self, 
+        tool_calls: List[ToolCall], 
+        tools_by_name: Dict[str, BaseTool], 
+        finished_tool_calls: List[ToolCall],
+        human_response: Optional[Dict[str, GuardRequestSchema]] = None
+    ) -> Tuple[List[ToolCall], List[ToolCall], List[ToolCall]]:
+        """
+        基于guard的工具调用过滤器
+        - 返回两个列表：第一个是通过过滤即将执行的工具调用列表，第二个是被过滤掉需要等待人工审查的工具调用列表，第三个是被拒绝的工具调用列表（不再被执行，而是需要后续包装成 ToolResultMessage 返回给 LLM）
+        """
+        passed_calls = []
+        filtered_calls = []
+        rejected_calls = []
+
+        for tool_call in tool_calls:
+            tool = tools_by_name.get(tool_call.function_name)
+
+            # 检测到该工具有护栏
+            if tool and tool.guard:
+                if not human_response or (human_response and tool_call.tool_call_id not in human_response):
+                    # 如果没有响应数据，或者有响应数据但当前工具调用没有对应的响应，则加入被过滤的工具调用列表中，用于后续发起人工审核请求
+                    filtered_calls.append(tool_call)
+                else:
+                    # 有响应数据且当前工具调用有对应响应，使用护栏函数判断是否通过
+                    response_data = human_response[tool_call.tool_call_id]
+                    if tool.guard(response_data):
+                        passed_calls.append(tool_call)
+                    else:
+                        # 护栏函数判断不通过
+                        rejected_calls.append(tool_call)
+
+            elif tool not in finished_tool_calls:
+                # 没有护栏且尚未被执行，直接加入通过的工具调用列表中
+                passed_calls.append(tool_call)
+
+        return passed_calls, filtered_calls, rejected_calls
+
+
+
+
 class AfterExecuteTools(IAfterExecuteTools):
     async def after_execute_tools(self, data):
         return OutputAfterExecuteTools(

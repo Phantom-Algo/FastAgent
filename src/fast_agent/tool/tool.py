@@ -11,7 +11,6 @@ from .human_review import HumanReviewChannel
 
 if TYPE_CHECKING:
     from fast_agent.llm import LLMConfig, Context, AssistantMessage, UserMessage
-    from fast_agent.agent import Lifespan
 
 class ToolRuntime(BaseModel):
     """
@@ -19,10 +18,10 @@ class ToolRuntime(BaseModel):
     """
     tool_call_id: str
     this_tool: Optional[BaseTool] = None
-    llm_config: Optional[LLMConfig] = None
-    context: Optional[Context] = None
-    llm_output: Optional[AssistantMessage] = None
-    user_input: Optional[UserMessage] = None
+    llm_config: Optional["LLMConfig"] = None
+    context: Optional["Context"] = None
+    llm_output: Optional["AssistantMessage"] = None
+    user_input: Optional["UserMessage"] = None
     human_review_channel: Optional[HumanReviewChannel] = None
     human_review_timeout: Optional[int] = None
     kwargs: Dict[str, Any] = Field(default_factory=dict)
@@ -37,6 +36,8 @@ class ToolRuntime(BaseModel):
         """
         return await self.human_review_channel.request(data, timeout=timeout or self.human_review_timeout)
 
+
+
 def tool(
     func: Optional[Callable] = None,
     *,
@@ -45,6 +46,7 @@ def tool(
     labels: Optional[list[str]] = None,
     inject_params: Optional[list[str]] = None,
     human_review_timeout: Optional[int] = None,
+    guard: Optional[Callable[..., bool]] = None,
 ) -> Callable:
     """
     将普通函数/异步函数包装为 BaseTool。
@@ -59,6 +61,7 @@ def tool(
     - labels: 工具标签
     - inject_params: 由运行环境注入的参数名列表，这些参数不会出现在 args_schema 中
     - human_review_timeout: 人工审核超时时间（秒）
+    - guard: 工具调用护栏函数，用于在调用工具前进行条件检查
     """
 
     def decorator(target: Callable) -> BaseTool:

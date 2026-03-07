@@ -112,7 +112,7 @@ class ToolsExecutedEvent(BaseEvent):
 
 class InterruptEvent(BaseEvent):
     """InterruptEvent 中断事件"""
-    type: Literal["interrupt"] = "interrupt"
+    type: Literal["error_interrupt", "human_review_interrupt"] = "error_interrupt"
 
     class InterruptEventData(BaseModel):
         reason: Optional[str] = None

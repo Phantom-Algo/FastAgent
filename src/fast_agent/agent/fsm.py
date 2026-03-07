@@ -19,7 +19,9 @@ import logging
 from .state import AgentState
 from .snapshot import Snapshot
 from .event import BaseEvent, InterruptEvent
-from fast_agent.llm import UserMessage, AssistantMessage, ToolResultMessage
+from fast_agent.llm import UserMessage, AssistantMessage, ToolResultMessage, ToolCall
+from fast_agent.tool import ToolCallGuardTriggered, GuardTriggeredToolCallContext, GuardRequestSchema
+from typing import Literal, Optional, Dict
 
 if TYPE_CHECKING:
     from .agent import Agent
@@ -37,6 +39,7 @@ class InterruptSignal:
     字段：
     - reason: 中断原因描述（如 "client_disconnect"、具体异常信息等）
     """
+    type: Literal["error", "human_review"] = "error"
     reason: str = ""
 
 
@@ -102,6 +105,8 @@ class AgentFSM:
         user_input: Optional[UserMessage] = None,
         llm_output: Optional[AssistantMessage] = None,
         tool_results: Optional[List[ToolResultMessage]] = None,
+        human_review_response: Optional[Dict[str, GuardRequestSchema]] = None,
+        finished_tool_calls: Optional[List[ToolCall]] = None,
     ):
         self.agent = agent
         self.current_state: Optional[IAgentState] = initial_state
@@ -111,6 +116,8 @@ class AgentFSM:
         self.user_input = user_input
         self.llm_output = llm_output
         self.tool_results = tool_results
+        self.human_review_response: Optional[Dict[str, GuardRequestSchema]] = human_review_response
+        self.finished_tool_calls: Optional[List[ToolCall]] = finished_tool_calls
 
         # ===== 中断信号队列（线程安全） =====
         self._interrupt_queue: asyncio.Queue[InterruptSignal] = asyncio.Queue()
@@ -171,7 +178,12 @@ class AgentFSM:
         self.llm_output = self._checkpoint_llm_output
         self.tool_results = self._checkpoint_tool_results
 
-    def create_snapshot(self, status: AgentState) -> Snapshot:
+    def create_snapshot(
+            self, 
+            status: AgentState, 
+            guard_triggered_contexts: Optional[List[GuardTriggeredToolCallContext]] = None,
+            finished_tool_calls: Optional[List[ToolCall]] = None,
+        ) -> Snapshot:
         """
         基于当前 FSM 状态创建快照对象。
 
@@ -185,6 +197,8 @@ class AgentFSM:
             llm_output=self.llm_output,
             tool_results=self.tool_results if self.tool_results is not None else None,
             status=status,
+            guard_triggered_contexts=guard_triggered_contexts,
+            finished_tool_calls=finished_tool_calls,
         )
 
     def _make_interrupt_event(self, signal: InterruptSignal) -> InterruptEvent:
@@ -240,6 +254,20 @@ class AgentFSM:
 
                 # 状态执行完毕，切换到下一个状态
                 self.current_state = self.next_state
+
+            except ToolCallGuardTriggered as guard_exc:
+                # 工具调用护栏触发，包装特殊 snapshot
+                yield InterruptEvent(
+                    type="human_review_interrupt",
+                    data=InterruptEvent.InterruptEventData(
+                        reason="Tool call guard has been triggered",
+                        snapshot=self.create_snapshot(
+                            status=self.current_state.get_status() if self.current_state else AgentState.AFTER_USER_INPUT,
+                            guard_triggered_contexts=guard_exc.contexts if hasattr(guard_exc, "contexts") else None,
+                            finished_tool_calls=guard_exc.finished_tool_calls if hasattr(guard_exc, "finished_tool_calls") else None,
+                        )
+                    )
+                )
 
             except Exception as e:
                 # 服务端异常：回滚并输出中断事件

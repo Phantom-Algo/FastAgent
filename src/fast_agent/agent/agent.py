@@ -17,6 +17,7 @@ from fast_agent.llm import (
     AssistantMessage,
     ToolResultMessage,
 )
+from fast_agent.tool import GuardRequestSchema
 from .lifespan import Lifespan
 from .fsm import AgentFSM
 from .states import (
@@ -42,7 +43,7 @@ from .event import (
     EventChannel,
     EventChannelClosed,
 )
-from typing import Optional, AsyncGenerator
+from typing import Optional, AsyncGenerator, Dict
 from copy import deepcopy
 import asyncio
 
@@ -95,12 +96,17 @@ class Agent:
         async for event in self._stream_unified_channel(fsm):
             yield event
 
-    async def resume_stream(self, snapshot: Snapshot) -> AsyncGenerator[BaseEvent, None]:
+    async def resume_stream(
+            self, 
+            snapshot: Snapshot, 
+            human_review_response: Optional[Dict[str, GuardRequestSchema]] = None,
+        ) -> AsyncGenerator[BaseEvent, None]:
         """
         恢复流式输出接口，基于传入的 Snapshot 恢复 Agent 状态并继续流式输出。
 
         参数列表：
         - snapshot: Snapshot 包含之前 Agent 状态的快照对象
+        - human_review_response: 可选的人类审核响应数据，用于在恢复后继续执行被人类审核阻断的工具调用
         """
         # 恢复 Agent 状态
         self.llm_config = snapshot.llm_config
@@ -117,6 +123,8 @@ class Agent:
             user_input=snapshot.user_input,
             llm_output=snapshot.llm_output,
             tool_results=snapshot.tool_results,
+            human_review_response=human_review_response,
+            finished_tool_calls=snapshot.finished_tool_calls
         )
 
         async for event in self._stream_unified_channel(fsm):

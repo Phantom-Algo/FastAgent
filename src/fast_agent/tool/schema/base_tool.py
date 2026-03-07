@@ -1,6 +1,10 @@
 from pydantic import BaseModel, Field, ConfigDict
-from typing import Callable, Any, List, Optional, Dict, Type, Union
+from typing import Callable, Any, List, Optional, Dict, Type, Union, TYPE_CHECKING
+from ..guard import GuardInfo, GuardRequestSchema
 import uuid
+
+if TYPE_CHECKING:
+    from fast_agent.llm import ToolResultMessage
 
 class BaseTool(BaseModel):
     """BaseTool 工具标准化 schema。"""
@@ -23,6 +27,15 @@ class BaseTool(BaseModel):
     _tool_runtime_name: Optional[str] = None
 
     human_review_timeout: Optional[int] = None
+
+    # guard_info - 工具调用护栏信息
+    guard_info: Optional[GuardInfo] = None
+
+    # guard - 工具调用护栏
+    guard: Optional[Callable[[GuardRequestSchema], bool]] = None
+
+    # reject_response - 护栏函数判断不通过时返回的内容构造函数
+    reject_response: Optional[Callable[[GuardRequestSchema], "ToolResultMessage"]] = None
 
     def __call__(self, *args, **kwds):
         return self.func(*args, **kwds)

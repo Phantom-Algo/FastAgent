@@ -239,7 +239,12 @@ class ExecutingToolsState(IAgentState):
         agent = fsm.agent
 
         # 调用 executing_tools 生命周期钩子
-        input_data = InputExecutingTools.from_agent(agent, llm_output=fsm.llm_output)
+        input_data = InputExecutingTools.from_agent(
+            agent, 
+            llm_output=fsm.llm_output,
+            human_response=fsm.human_review_response,
+            finished_tool_calls=fsm.finished_tool_calls,
+        )
         output_data: OutputExecutingTools = await agent.lifespan.executing_tools.executing_tools(input_data)
         output_data.update_agent(agent)
 
