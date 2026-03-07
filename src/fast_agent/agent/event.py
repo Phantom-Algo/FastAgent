@@ -25,6 +25,7 @@ class BaseEvent(BaseModel):
 
     metadata: BaseEventMetadata = Field(default_factory=BaseEventMetadata)
 
+# ===== 具体事件类型 =====
 
 class AssistantMessageChunkOutputEvent(BaseEvent):
     """ChunkOutputEvent 分块输出事件"""
@@ -120,6 +121,29 @@ class InterruptEvent(BaseEvent):
 
     data: InterruptEventData
 
+class HumanReviewEvent(BaseEvent):
+    """HumanReviewEvent 人类审核事件"""
+    type: Literal["human_review"] = "human_review"
+
+    class HumanReviewEventData(BaseModel):
+        content: Dict[str, Any]
+        response_channel: asyncio.Future
+
+    data: HumanReviewEventData
+
+class HumanResponseEvent(BaseEvent):
+    """HumanResponseEvent 人类审查响应事件"""
+    # human_normal_response 表示正常响应（包括用户拒绝操作）
+    # human_error_response 表示审查过程中发生错误（如客户端断联等）
+    type: Literal["human_normal_response", "human_error_response"]
+
+    class HumanResponseEventData(BaseModel):
+        is_success: bool
+        message: Optional[str] = None
+        content: Optional[Dict[str, Any]] = None
+
+    data: HumanResponseEventData
+
 
 # ===== Event传输通道 =====
 class EventChannel:
@@ -135,9 +159,17 @@ class EventChannel:
             raise EventChannelClosed("EventChannel is closed, cannot send event.")
         await self.event_queue.put(event)
 
-    async def receive_event(self) -> BaseEvent:
-        """从通道接收事件（阻塞）"""
-        event = await self.event_queue.get()
+    async def receive_event(self, timeout: Optional[int] = None) -> BaseEvent:
+        """
+        从通道接收事件（阻塞）
+        
+        参数说明：
+        - timeout: 接收事件的超时时间（秒），默认为 None 表示无限等待
+        """
+        try:
+            event = await asyncio.wait_for(self.event_queue.get(), timeout)
+        except asyncio.TimeoutError:
+            raise EventChannelClosed("EventChannel receive_event timeout.")
 
         if event is self._close_sentinel:
             self.event_queue.task_done()

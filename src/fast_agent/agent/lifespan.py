@@ -3,6 +3,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Dict, Any, Optional, List, Union, Literal
 from fast_agent.llm import LLMConfig, Context, UserMessage, AssistantMessage, ToolResultMessage, ToolCall
+from fast_agent.tool import ToolRuntime, HumanReviewChannel
 from .event import EventChannel
 import asyncio
 
@@ -126,7 +127,6 @@ class InputAfterLLMOutput(BaseLifespanData):
     InputAfterLLMOutput 生命周期数据传输对象
     包含 after_llm_output 生命周期方法所需的参数
     """
-
     llm_output: Optional[AssistantMessage] = None
 
 
@@ -136,7 +136,6 @@ class OutputAfterLLMOutput(BaseLifespanData):
     OutputAfterLLMOutput 生命周期数据传输对象
     包含 after_llm_output 生命周期方法的返回值参数
     """
-
     llm_output: Optional[AssistantMessage] = None
 
 
@@ -146,7 +145,6 @@ class InputBeforeExecuteTools(BaseLifespanData):
     InputBeforeExecuteTools 生命周期数据传输对象
     包含 before_execute_tools 生命周期方法所需的参数
     """
-
     llm_output: Optional[AssistantMessage] = None
 
 
@@ -156,7 +154,6 @@ class OutputBeforeExecuteTools(BaseLifespanData):
     OutputBeforeExecuteTools 生命周期数据传输对象
     包含 before_execute_tools 生命周期方法的返回值参数
     """
-
     llm_output: Optional[AssistantMessage] = None
 
 
@@ -388,9 +385,27 @@ class ExecutingTools(IExecutingTools):
                 )
 
             call_kwargs = dict(tool_call.function_args or {})
+
+            # --- 注入开发者指定的运行时注入参数 ---
             for param_name in (tool.inject_params or []):
                 if param_name in tool_inject_params:
                     call_kwargs[param_name] = tool_inject_params[param_name]
+
+            # --- 系统自动注入 tool_runtime 参数（包含工具调用的上下文信息，供工具函数使用） ---
+            tool_runtime_name = tool.get_tool_runtime_name()
+            if tool_runtime_name:
+                call_kwargs[tool_runtime_name] = ToolRuntime(
+                    tool_call_id=tool_call.tool_call_id,
+                    this_tool=tool,
+                    llm_config=data.llm_config,
+                    context=data.context,
+                    llm_output=llm_output,
+                    human_review_channel=HumanReviewChannel(
+                        event_channel=EventChannel()
+                    ),
+                    human_review_timeout=tool.human_review_timeout,
+                    kwargs=data.kwargs,
+                )
 
             try:
                 if tool.is_async:

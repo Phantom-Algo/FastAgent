@@ -20,6 +20,10 @@ class BaseTool(BaseModel):
 
     inject_params: Optional[List[str]] = None
 
+    _tool_runtime_name: Optional[str] = None
+
+    human_review_timeout: Optional[int] = None
+
     def __call__(self, *args, **kwds):
         return self.func(*args, **kwds)
     
@@ -69,6 +73,9 @@ class BaseTool(BaseModel):
             "description": self.description,
             "parameters": self._get_json_schema()
         }
+    
+    def get_tool_runtime_name(self):
+        return self._tool_runtime_name
 
 
 def _clean_json_schema(schema: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:
@@ -84,5 +91,7 @@ def _clean_json_schema(schema: Union[Dict[str, Any], List[Any]]) -> Union[Dict[s
             _clean_json_schema(item)
 
     return schema
+
+
 
     
