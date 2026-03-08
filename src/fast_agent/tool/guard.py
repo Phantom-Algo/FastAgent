@@ -1,14 +1,16 @@
+from __future__ import annotations
+
 from pydantic import BaseModel
 from typing import Any, Type, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from fast_agent.llm import ToolCall
-    from schema import BaseTool
+    from .schema.base_tool import BaseTool
 
 class GuardTriggeredToolCallContext(BaseModel):
     """护栏被触发的工具调用上下文信息"""
-    tool_call: ToolCall
-    tool_info: BaseTool
+    tool_call: "ToolCall"
+    tool_info: "BaseTool"
 
 class ToolCallGuardTriggered(Exception):
     """工具调用护栏触发"""
@@ -16,7 +18,7 @@ class ToolCallGuardTriggered(Exception):
         self,
         message: str,
         contexts: List[GuardTriggeredToolCallContext],
-        finished_tool_calls: Optional[List[ToolCall]] = None,
+        finished_tool_calls: Optional[List["ToolCall"]] = None,
     ):
         super().__init__(message)
         self.contexts = contexts

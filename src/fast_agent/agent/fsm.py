@@ -117,7 +117,7 @@ class AgentFSM:
         self.llm_output = llm_output
         self.tool_results = tool_results
         self.human_review_response: Optional[Dict[str, GuardRequestSchema]] = human_review_response
-        self.finished_tool_calls: Optional[List[ToolCall]] = finished_tool_calls
+        self.finished_tool_calls: List[ToolCall] = list(finished_tool_calls or [])
 
         # ===== 中断信号队列（线程安全） =====
         self._interrupt_queue: asyncio.Queue[InterruptSignal] = asyncio.Queue()

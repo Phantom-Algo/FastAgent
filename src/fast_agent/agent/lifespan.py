@@ -336,6 +336,7 @@ class AfterUserInput(IAfterUserInput):
             llm_config=data.llm_config,
             context=data.context,
             user_input=data.user_input,
+            event_channel=data.event_channel,
             kwargs=data.kwargs,
         )
     
@@ -345,6 +346,7 @@ class AfterLLMOutput(IAfterLLMOutput):
             llm_config=data.llm_config,
             context=data.context,
             llm_output=data.llm_output,
+            event_channel=data.event_channel,
             kwargs=data.kwargs,
         )
     
@@ -354,6 +356,7 @@ class BeforeExecuteTools(IBeforeExecuteTools):
             llm_config=data.llm_config,
             context=data.context,
             llm_output=data.llm_output,
+            event_channel=data.event_channel,
             kwargs=data.kwargs,
         )
     
@@ -361,6 +364,7 @@ class ExecutingTools(IExecutingTools):
     async def executing_tools(self, data):
         llm_output = data.llm_output
         tool_calls = llm_output.tool_calls or []
+        finished_tool_calls = list(data.finished_tool_calls or [])
 
         if not tool_calls:
             return OutputExecutingTools(
@@ -420,8 +424,9 @@ class ExecutingTools(IExecutingTools):
                     content=result,
                     is_error=False
                 )
-            except Exception:
+            except Exception as e:
                 # 脱敏：不向 LLM 暴露具体错误信息，防止环境信息泄露
+                print(f"\n\n‼️ 失败！工具 `{tool.name}` 调用发生错误: {str(e)}\n\n")
                 return ToolResultMessage(
                     tool_call_id=tool_call.tool_call_id,
                     name=tool.name,
@@ -430,7 +435,12 @@ class ExecutingTools(IExecutingTools):
                 )
             
         # 过滤
-        passed_calls, filtered_calls, rejected_calls = self._filter_tool_calls_by_guard(tool_calls, tools_by_name, data.human_response)
+        passed_calls, filtered_calls, rejected_calls = self._filter_tool_calls_by_guard(
+            tool_calls=tool_calls,
+            tools_by_name=tools_by_name,
+            finished_tool_calls=finished_tool_calls,
+            human_response=data.human_response,
+        )
 
         # gather 返回结果顺序与传入顺序一致，可同时执行异步/同步工具调用
         # TODO:处理一些工具 raise 异常的边缘情况 
@@ -445,7 +455,10 @@ class ExecutingTools(IExecutingTools):
                 content=f"工具 `{rejected_call.function_name}` 调用被拒绝。",
                 is_error=False
             )
-            tool_results.append(reject_response_func(data.human_response.get(rejected_call.tool_call_id)))
+            response_data = data.human_response.get(rejected_call.tool_call_id) if data.human_response else None
+            tool_results.append(reject_response_func(response_data))
+
+        updated_finished_tool_calls = [*finished_tool_calls, *passed_calls]
 
         # filtered_calls 需发起人工审核请求
         if filtered_calls:
@@ -454,11 +467,11 @@ class ExecutingTools(IExecutingTools):
                 contexts=[
                     GuardTriggeredToolCallContext(
                         tool_call=tool_call,
-                        tool=tools_by_name.get(tool_call.function_name),
+                        tool_info=tools_by_name.get(tool_call.function_name),
                     )
                     for tool_call in filtered_calls
                 ],
-                finished_tool_calls=data.finished_tool_calls.extend(passed_calls)
+                finished_tool_calls=updated_finished_tool_calls,
             )
 
         return OutputExecutingTools(
@@ -466,6 +479,7 @@ class ExecutingTools(IExecutingTools):
             context=data.context,
             llm_output=llm_output,
             tool_results=tool_results,
+            event_channel=data.event_channel,
             kwargs=data.kwargs
         )
     
@@ -473,7 +487,7 @@ class ExecutingTools(IExecutingTools):
         self, 
         tool_calls: List[ToolCall], 
         tools_by_name: Dict[str, BaseTool], 
-        finished_tool_calls: List[ToolCall],
+        finished_tool_calls: Optional[List[ToolCall]] = None,
         human_response: Optional[Dict[str, GuardRequestSchema]] = None
     ) -> Tuple[List[ToolCall], List[ToolCall], List[ToolCall]]:
         """
@@ -483,8 +497,15 @@ class ExecutingTools(IExecutingTools):
         passed_calls = []
         filtered_calls = []
         rejected_calls = []
+        finished_tool_call_ids = {
+            tool_call.tool_call_id
+            for tool_call in (finished_tool_calls or [])
+        }
 
         for tool_call in tool_calls:
+            if tool_call.tool_call_id in finished_tool_call_ids:
+                continue
+
             tool = tools_by_name.get(tool_call.function_name)
 
             # 检测到该工具有护栏
@@ -501,7 +522,7 @@ class ExecutingTools(IExecutingTools):
                         # 护栏函数判断不通过
                         rejected_calls.append(tool_call)
 
-            elif tool not in finished_tool_calls:
+            else:
                 # 没有护栏且尚未被执行，直接加入通过的工具调用列表中
                 passed_calls.append(tool_call)
 
@@ -517,6 +538,7 @@ class AfterExecuteTools(IAfterExecuteTools):
             context=data.context,
             llm_output=data.llm_output,
             tool_results=data.tool_results,
+            event_channel=data.event_channel,
             kwargs=data.kwargs,
         )
     
@@ -525,6 +547,7 @@ class AfterFinish(IAfterFinish):
         return OutputAfterFinish(
             llm_config=data.llm_config,
             context=data.context,
+            event_channel=data.event_channel,
             kwargs=data.kwargs,
         )
 

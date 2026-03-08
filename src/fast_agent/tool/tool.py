@@ -4,24 +4,36 @@ import inspect
 from functools import wraps
 from typing import Any, Callable, Optional, get_type_hints, TYPE_CHECKING, Dict
 
-from pydantic import create_model, BaseModel, Field
+from pydantic import create_model, BaseModel, Field, ConfigDict
 
 from .schema.base_tool import BaseTool
 from .human_review import HumanReviewChannel
 
 if TYPE_CHECKING:
-    from fast_agent.llm import LLMConfig, Context, AssistantMessage, UserMessage
+    from fast_agent.llm import LLMConfig, Context, AssistantMessage, UserMessage, ToolResultMessage
+    from .guard import GuardInfo, GuardRequestSchema
+    LLMConfigType = LLMConfig
+    ContextType = Context
+    AssistantMessageType = AssistantMessage
+    UserMessageType = UserMessage
+else:
+    LLMConfigType = Any
+    ContextType = Any
+    AssistantMessageType = Any
+    UserMessageType = Any
 
 class ToolRuntime(BaseModel):
     """
     ToolRuntime 包含工具执行时的上下文信息，供工具函数使用。
     """
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     tool_call_id: str
     this_tool: Optional[BaseTool] = None
-    llm_config: Optional["LLMConfig"] = None
-    context: Optional["Context"] = None
-    llm_output: Optional["AssistantMessage"] = None
-    user_input: Optional["UserMessage"] = None
+    llm_config: Optional[LLMConfigType] = None
+    context: Optional[ContextType] = None
+    llm_output: Optional[AssistantMessageType] = None
+    user_input: Optional[UserMessageType] = None
     human_review_channel: Optional[HumanReviewChannel] = None
     human_review_timeout: Optional[int] = None
     kwargs: Dict[str, Any] = Field(default_factory=dict)
@@ -46,7 +58,9 @@ def tool(
     labels: Optional[list[str]] = None,
     inject_params: Optional[list[str]] = None,
     human_review_timeout: Optional[int] = None,
+    guard_info: Optional[GuardInfo] = None,
     guard: Optional[Callable[..., bool]] = None,
+    reject_response: Optional[Callable[[GuardRequestSchema], "ToolResultMessage"]] = None
 ) -> Callable:
     """
     将普通函数/异步函数包装为 BaseTool。
@@ -121,8 +135,11 @@ def tool(
             is_async=is_async,
             labels=labels or [],
             inject_params=list(inject_set),
-            _tool_runtime_name=tool_runtime_name or None,
+            tool_runtime_name=tool_runtime_name or None,
             human_review_timeout=human_review_timeout,
+            guard=guard,
+            guard_info=guard_info,
+            reject_response=reject_response,
         )
 
     return decorator if func is None else decorator(func)

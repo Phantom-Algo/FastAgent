@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 from pydantic import BaseModel, Field, ConfigDict
-from fast_agent.llm import LLMConfig, Context, ToolCall, AssistantMessage, UserMessage, ToolResultMessage
-from fast_agent.tool import GuardTriggeredToolCallContext
 from .state import AgentState
 from typing import Optional, List, TYPE_CHECKING
 import uuid
 
 if TYPE_CHECKING:
     from .lifespan import Lifespan
+    from fast_agent.llm import (
+        UserMessage, 
+        AssistantMessage, 
+        ToolResultMessage,
+        ToolCall,
+        LLMConfig,
+        Context
+    )
+    from fast_agent.tool import GuardTriggeredToolCallContext
 
 
 class Snapshot(BaseModel):
@@ -27,12 +34,12 @@ class Snapshot(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
     id: str = Field(default_factory=lambda: f"snapshot_{uuid.uuid4().hex[:16]}")
-    llm_config: LLMConfig
-    context: Context
+    llm_config: "LLMConfig"
+    context: "Context"
     lifespan: "Lifespan"
-    user_input: Optional[UserMessage] = None
-    llm_output: Optional[AssistantMessage] = None
-    tool_results: Optional[List[ToolResultMessage]] = None
-    guard_triggered_contexts: Optional[List[GuardTriggeredToolCallContext]] = None
-    finished_tool_calls: Optional[List[ToolCall]] = None
+    user_input: Optional["UserMessage"] = None
+    llm_output: Optional["AssistantMessage"] = None
+    tool_results: Optional[List["ToolResultMessage"]] = None
+    guard_triggered_contexts: Optional[List["GuardTriggeredToolCallContext"]] = None
+    finished_tool_calls: Optional[List["ToolCall"]] = None
     status: AgentState

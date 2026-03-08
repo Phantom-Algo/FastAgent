@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, Field, ConfigDict
 from typing import Callable, Any, List, Optional, Dict, Type, Union, TYPE_CHECKING
 from ..guard import GuardInfo, GuardRequestSchema
@@ -5,6 +7,9 @@ import uuid
 
 if TYPE_CHECKING:
     from fast_agent.llm import ToolResultMessage
+    ToolResultMessageType = ToolResultMessage
+else:
+    ToolResultMessageType = Any #TODO：这里暂时使用 Any，后续可通过代码重构解决
 
 class BaseTool(BaseModel):
     """BaseTool 工具标准化 schema。"""
@@ -24,7 +29,7 @@ class BaseTool(BaseModel):
 
     inject_params: Optional[List[str]] = None
 
-    _tool_runtime_name: Optional[str] = None
+    tool_runtime_name: Optional[str] = None
 
     human_review_timeout: Optional[int] = None
 
@@ -35,7 +40,7 @@ class BaseTool(BaseModel):
     guard: Optional[Callable[[GuardRequestSchema], bool]] = None
 
     # reject_response - 护栏函数判断不通过时返回的内容构造函数
-    reject_response: Optional[Callable[[GuardRequestSchema], "ToolResultMessage"]] = None
+    reject_response: Optional[Callable[[GuardRequestSchema], ToolResultMessageType]] = None
 
     def __call__(self, *args, **kwds):
         return self.func(*args, **kwds)
@@ -88,7 +93,7 @@ class BaseTool(BaseModel):
         }
     
     def get_tool_runtime_name(self):
-        return self._tool_runtime_name
+        return self.tool_runtime_name
 
 
 def _clean_json_schema(schema: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], List[Any]]:

@@ -6,3 +6,5 @@ __pycache__/
 LLM运行抽象流程与生命周期.md
 
 .pytest_cache/
+
+*.sh

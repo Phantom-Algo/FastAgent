@@ -1,11 +1,26 @@
+from __future__ import annotations
+
 from pydantic import BaseModel, Field, model_validator, ConfigDict
 from typing import Any, Literal, Dict, Optional, List
-from fast_agent.llm import ToolCall, ToolResultMessage, LLMConfig, Context
-from .snapshot import Snapshot
+from typing import TYPE_CHECKING
 import time
 import uuid
 import asyncio
 
+if TYPE_CHECKING:
+    from fast_agent.llm import LLMConfig, Context, ToolCall, ToolResultMessage
+    from .snapshot import Snapshot
+    LLMConfigType = LLMConfig
+    ContextType = Context
+    ToolCallType = ToolCall
+    ToolResultMessageType = ToolResultMessage
+    SnapshotType = Snapshot
+else:
+    LLMConfigType = Any #TODO：这里暂时使用 Any，后续可通过代码重构解决
+    ContextType = Any #TODO：这里暂时使用 Any，后续可通过代码
+    ToolCallType = Any #TODO：这里暂时使用 Any，后续可通过代码重构解决
+    ToolResultMessageType = Any #TODO：这里暂时使用 Any，后续可通过代码重构解决
+    SnapshotType = Any #TODO：这里暂时使用 Any，后续可通过代码重构解决
 
 class EventChannelClosed(Exception):
     """EventChannel 已关闭，无法继续收发事件。"""
@@ -72,7 +87,7 @@ class AssistantMessageOutputEvent(BaseEvent):
 
         refusal: Optional[str] = None
 
-        tool_calls: Optional[List[ToolCall]] = None
+        tool_calls: Optional[List[ToolCallType]] = None
 
         finish_reason: str = "unknown"
 
@@ -91,9 +106,9 @@ class RoundStopEvent(BaseEvent):
 
         finish_reason: Literal["unknown", "stop", "length", "tool_calls", "content_filter", "balance", "error"] = "unknown"
 
-        llm_config: LLMConfig
+        llm_config: LLMConfigType
 
-        context: Context
+        context: ContextType
 
         kwargs: Dict[str, Any]
 
@@ -105,7 +120,7 @@ class ToolsExecutedEvent(BaseEvent):
     type: Literal["tools_executed"] = "tools_executed"
 
     class ToolsExecutedEventData(BaseModel):
-        tool_results: List[ToolResultMessage]
+        tool_results: List[ToolResultMessageType]
 
     data: ToolsExecutedEventData
 
@@ -117,7 +132,7 @@ class InterruptEvent(BaseEvent):
     class InterruptEventData(BaseModel):
         reason: Optional[str] = None
 
-        snapshot: Snapshot
+        snapshot: SnapshotType
 
     data: InterruptEventData
 
@@ -126,6 +141,8 @@ class HumanReviewEvent(BaseEvent):
     type: Literal["human_review"] = "human_review"
 
     class HumanReviewEventData(BaseModel):
+        model_config = ConfigDict(arbitrary_types_allowed=True)
+
         content: Dict[str, Any]
         response_channel: asyncio.Future
 

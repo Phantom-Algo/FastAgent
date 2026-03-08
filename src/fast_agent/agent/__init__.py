@@ -13,6 +13,8 @@ from .states import (
 from .snapshot import Snapshot
 from .lifespan import (
 	Lifespan,
+    InputAfterFinish,
+    OutputAfterFinish,
 	IAfterUserInput,
 	IAfterLLMOutput,
 	IBeforeExecuteTools,
@@ -28,6 +30,8 @@ from .event import (
 	ToolsExecutedEvent,
 	RoundStopEvent,
 	InterruptEvent,
+    HumanReviewEvent, 
+    HumanResponseEvent
 )
 
 __all__ = [
@@ -50,6 +54,8 @@ __all__ = [
 	"Snapshot",
 	# 生命周期
 	"Lifespan",
+    "InputAfterFinish",
+    "OutputAfterFinish",
 	"IAfterUserInput",
 	"IAfterLLMOutput",
 	"IBeforeExecuteTools",
@@ -64,4 +70,6 @@ __all__ = [
 	"ToolsExecutedEvent",
 	"RoundStopEvent",
 	"InterruptEvent",
+    "HumanReviewEvent",
+    "HumanResponseEvent"
 ]
