@@ -12,16 +12,6 @@ from ...types.tool.domain.guard_policy import GuardPolicy
 
 from .tool import Tool
 
-# 动态模型注册表，使 pickle 能够找到 create_model 生成的类
-_DYNAMIC_MODEL_REGISTRY = {}
-
-
-def __getattr__(name):
-	"""模块级 __getattr__，让 pickle 能通过模块属性查找动态创建的模型类。"""
-	if name in _DYNAMIC_MODEL_REGISTRY:
-		return _DYNAMIC_MODEL_REGISTRY[name]
-	raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 def tool_creator(
 	func: Optional[Callable] = None,
@@ -79,30 +69,18 @@ def tool_creator(
 		model_config = ConfigDict(extra="allow" if additional_properties else "forbid")
 		tool_params_model = create_model(model_name, __config__=model_config, **fields_defs)
 
-		# 注册动态模型，使其可被 pickle 序列化
-		tool_params_model.__module__ = __name__
-		tool_params_model.__qualname__ = model_name
-		_DYNAMIC_MODEL_REGISTRY[model_name] = tool_params_model
-
-		# 生成唯一的 wrapper 名称，避免与装饰后的 Tool 对象冲突
-		wrapper_name = f"_wrapper_{original_func.__name__}_{uuid.uuid4().hex[:8]}"
-
 		# 异步
+		@wraps(f)
 		async def async_wrapper(*args, **kwargs):
 			return await f(*args, **kwargs)
 
 		# 同步
+		@wraps(f)
 		def sync_wrapper(*args, **kwargs):
 			return f(*args, **kwargs)
 
 		is_async = inspect.iscoroutinefunction(f)
 		wrapper = async_wrapper if is_async else sync_wrapper
-
-		# 注册 wrapper 函数，使其可被 pickle 序列化
-		wrapper.__name__ = wrapper_name
-		wrapper.__qualname__ = wrapper_name
-		wrapper.__module__ = __name__
-		_DYNAMIC_MODEL_REGISTRY[wrapper_name] = wrapper
 
 		final_name = tool_name if tool_name else original_func.__name__
 
