@@ -4,5 +4,8 @@ __pycache__/
 .drawio/
 
 LLM运行抽象流程与生命周期.md
+Agent架构设计.png
 
 .pytest_cache/
+
+*.sh
