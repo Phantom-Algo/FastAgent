@@ -2,15 +2,18 @@
 
 __pycache__/
 
-.env
-
 .drawio/
-
-LLM运行抽象流程与生命周期.md
-Agent架构设计.png
 
 .pytest_cache/
 
-.DS_Store  
+LLM运行抽象流程与生命周期.md
+
+Agent架构设计.png
+
+.DS_Store
+
+.env
+
+mcpServer.json
 
 *.sh
