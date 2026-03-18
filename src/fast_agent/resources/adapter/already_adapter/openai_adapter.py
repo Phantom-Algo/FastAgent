@@ -6,9 +6,17 @@ from openai import AsyncOpenAI
 from ....types.adapter.base_adapter import IAdapter
 from ....types.context.base_context import BaseContext
 from ....types.llm.base_llm_config import BaseLLMConfig
-from ....types.messages.base_message import BaseMessage
 from ....types.messages.base_message_manager import BaseMessageManager
-from ....types.messages.domain import AssistantMessage, AssistantMessageChunk, ToolCall, ToolResultMessage, UserMessage
+from ....types.messages.domain import (
+    AssistantMessage, 
+    AssistantMessageChunk, 
+    ToolCall, 
+    ToolResultMessage, 
+    UserMessage,
+    BasePart,
+    TextPart,
+    ImagePart
+)
 from ....types.system_prompt.base_system_prompt import BaseSystemPrompt
 from ....types.tool.base_tool import BaseTool
 from ....types.tool.base_tool_manager import BaseToolManager
@@ -199,43 +207,7 @@ class OpenAIAdapter(IAdapter):
                 "content": content,
             }
 
-        openai_parts: List[Dict[str, Any]] = []
-        for part in content:
-            part_type = getattr(part, "type", None)
-
-            if part_type == "text":
-                openai_parts.append(
-                    {
-                        "type": "text",
-                        "text": part.text,
-                    }
-                )
-                continue
-
-            if part_type != "image":
-                continue
-
-            image_url = None
-            if getattr(part, "url", None):
-                image_url = part.url
-            elif getattr(part, "file_url", None):
-                image_url = part.file_url
-            elif getattr(part, "base64_data", None) and getattr(part, "mime_type", None):
-                image_url = f"data:{part.mime_type};base64,{part.base64_data}"
-
-            if image_url is None:
-                continue
-
-            image_part: Dict[str, Any] = {
-                "type": "image_url",
-                "image_url": {
-                    "url": image_url,
-                },
-            }
-            if getattr(part, "detail", None):
-                image_part["image_url"]["detail"] = part.detail
-
-            openai_parts.append(image_part)
+        openai_parts = self._convert_content_parts(content)
 
         return {
             "role": "user",
@@ -267,13 +239,71 @@ class OpenAIAdapter(IAdapter):
         return payload
 
     def _convert_tool_result_message(self, message: ToolResultMessage) -> Dict[str, Any]:
-        content = message.content if isinstance(message.content, str) else json.dumps(message.content, ensure_ascii=False)
+        if isinstance(message.content, str):
+            content: Union[str, List[Dict[str, Any]]] = message.content
+        elif isinstance(message.content, list):
+            content = self._convert_content_parts(message.content)
+            if not content:
+                content = ""
+        else:
+            content = json.dumps(message.content, ensure_ascii=False, default=str)
+
         return {
             "role": "tool",
             "tool_call_id": message.tool_call_id,
             "name": message.name,
             "content": content,
         }
+
+    def _convert_content_parts(self, content_parts: List[BasePart]) -> List[Dict[str, Any]]:
+        if not isinstance(content_parts, list):
+            return []
+
+        openai_parts: List[Dict[str, Any]] = []
+        for part in content_parts:
+
+            if isinstance(part, TextPart):
+                text = part.text
+                if text:
+                    openai_parts.append(
+                        {
+                            "type": "text",
+                            "text": text,
+                        }
+                    )
+                continue
+
+            if not isinstance(part, ImagePart):
+                continue
+
+            image_url = None
+
+            # 优先公网 URL
+            if part.url:
+                image_url = part.url
+
+            # Base64 编码的图片数据
+            elif part.base64_data and part.mime_type:
+                image_url = f"data:{part.mime_type};base64,{part.base64_data}"
+
+            # 若均无则跳过
+            if image_url is None:
+                continue
+
+            image_part: Dict[str, Any] = {
+                "type": "image_url",
+                "image_url": {
+                    "url": image_url,
+                },
+            }
+
+            # 清晰度
+            if part.detail:
+                image_part["image_url"]["detail"] = part.detail
+
+            openai_parts.append(image_part)
+
+        return openai_parts
 
     def _safe_json_loads(self, raw_args: Any) -> Dict[str, Any]:
         if raw_args is None:

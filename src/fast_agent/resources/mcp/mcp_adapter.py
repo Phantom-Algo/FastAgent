@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from contextlib import asynccontextmanager
 from datetime import timedelta
@@ -10,9 +11,20 @@ from mcp.client.sse import sse_client
 from mcp.client.stdio import StdioServerParameters, stdio_client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared._httpx_utils import create_mcp_http_client
+from mcp.types import (
+	AudioContent,
+	BlobResourceContents,
+	CallToolResult,
+	EmbeddedResource,
+	ImageContent,
+	ResourceLink,
+	TextContent,
+	TextResourceContents,
+)
 import httpx
 from pydantic import BaseModel, ConfigDict, create_model
 
+from ...types.messages.domain import BasePart, ImagePart, TextPart
 from ...types.mcp.base_mcp_adapter import BaseMCPAdapter
 from ...types.tool.base_tool import BaseTool
 from ..tool.tool import Tool
@@ -157,8 +169,8 @@ class MCPAdapter(BaseMCPAdapter):
 
 		async def _mcp_tool_func(**kwargs):
 			async with self._open_session(server_name=server_name, server_config=server_config) as session:
-				result = await session.call_tool(name=original_tool_name, arguments=kwargs)
-			if getattr(result, "isError", False):
+				result: CallToolResult = await session.call_tool(name=original_tool_name, arguments=kwargs)
+			if result.isError:
 				raise RuntimeError(f"MCP tool `{server_name}:{original_tool_name}` returned error result: {self._to_plain_data(result)}")
 			return self._format_call_tool_result(result)
 
@@ -269,23 +281,83 @@ class MCPAdapter(BaseMCPAdapter):
 			return "streamablehttp"
 		raise ValueError("MCP server config must contain either `command` (stdio) or `url` (sse/streamablehttp).")
 
-	def _format_call_tool_result(self, result: Any) -> Any:
-		structured_content = getattr(result, "structuredContent", None)
-		content = getattr(result, "content", None)
+	def _format_call_tool_result(self, result: CallToolResult) -> Union[str, List[BasePart]]:
+		parts: List[BasePart] = []
 
-		if structured_content is not None and content is None:
-			return self._to_plain_data(structured_content)
+		for block in result.content:
+			# --- 文本数据 ---
+			if isinstance(block, TextContent):
+				parts.append(TextPart(text=block.text))
+				continue
 
-		if structured_content is None and content is not None:
-			return self._to_plain_data(content)
+			# --- 图片数据 ---
+			if isinstance(block, ImageContent):
+				parts.append(ImagePart(base64_data=block.data, mime_type=block.mimeType))
+				continue
 
-		if structured_content is None and content is None:
-			return None
+			# --- 资源链接 ---
+			if isinstance(block, ResourceLink):
+				# 若为图片资源，则允许将图片URL作为图片输入
+				if block.mimeType and block.mimeType.startswith("image/"):
+					parts.append(ImagePart(url=block.uri))
 
-		return {
-			"structured_content": self._to_plain_data(structured_content),
-			"content": self._to_plain_data(content),
-		}
+				# 否则将链接信息作为文本输入，确保内容不丢失
+				else:
+					link_payload = {
+						"name": block.name,
+						"uri": block.uri,
+						"mimeType": block.mimeType,
+						"description": block.description,
+					}
+					parts.append(TextPart(text=f"ResourceLink: {json.dumps(link_payload, ensure_ascii=False)}"))
+				continue
+
+			if isinstance(block, EmbeddedResource):
+				# TODO：向量数据待实现
+				# resource = block.resource
+
+				# if isinstance(resource, TextResourceContents):
+				# 	parts.append(TextPart(text=resource.text))
+				# 	continue
+
+				# if isinstance(resource, BlobResourceContents):
+				# 	mime_type = resource.mimeType or "application/octet-stream"
+				# 	if mime_type.startswith("image/"):
+				# 		parts.append(ImagePart(base64_data=resource.blob, mime_type=mime_type))
+				# 	else:
+				# 		blob_payload = {
+				# 			"uri": resource.uri,
+				# 			"mimeType": mime_type,
+				# 			"blob_base64": resource.blob,
+				# 		}
+				# 		parts.append(TextPart(text=f"EmbeddedResource(blob): {json.dumps(blob_payload, ensure_ascii=False)}"))
+				# 	continue
+
+				# embedded_payload = self._to_plain_data(resource)
+				# parts.append(TextPart(text=f"EmbeddedResource(unknown): {json.dumps(embedded_payload, ensure_ascii=False, default=str)}"))
+				continue
+
+			if isinstance(block, AudioContent):
+				# TODO：音频内容待实现
+				# audio_payload = {
+				# 	"mimeType": block.mimeType,
+				# 	"audio_base64": block.data,
+				# }
+				# parts.append(TextPart(text=f"AudioContent: {json.dumps(audio_payload, ensure_ascii=False)}"))
+				continue
+
+		if result.structuredContent is not None:
+			structured_payload = self._to_plain_data(result.structuredContent)
+			parts.insert(0, TextPart(text=f"structured_content: {json.dumps(structured_payload, ensure_ascii=False, default=str)}"))
+
+		if parts:
+			return parts
+
+		# 若无内容块但有结构化内容，则返回结构化内容的 JSON 字符串，确保结果不丢失
+		if result.structuredContent is not None:
+			return json.dumps(self._to_plain_data(result.structuredContent), ensure_ascii=False, default=str)
+
+		return ""
 
 	def _to_plain_data(self, value: Any) -> Any:
 		if isinstance(value, BaseModel):

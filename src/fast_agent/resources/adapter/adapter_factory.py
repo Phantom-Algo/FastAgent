@@ -2,12 +2,14 @@ from ...types.adapter.base_adapter_factory import BaseAdapterFactory
 from ...types.llm.enum.llm_provider_enum import LLMProviderEnum
 from .already_adapter.openai_adapter import OpenAIAdapter
 from .already_adapter.deepseek_adapter import DeepSeekAdapter
+from .already_adapter.doubao_seed_adapter import DoubaoSeedAdapter
 
 class AdapterFactory(BaseAdapterFactory):
 
     _mapping = {
         LLMProviderEnum.OPENAI.value: OpenAIAdapter,
         LLMProviderEnum.DEEPSEEK.value: DeepSeekAdapter,
+        LLMProviderEnum.DOUBAO_SEED.value: DoubaoSeedAdapter,
     }
 
     @classmethod

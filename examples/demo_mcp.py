@@ -209,7 +209,7 @@ async def main():
 	manager = MCPManager()
 
 	repo_root = Path(__file__).resolve().parent.parent
-	mcp_config_path = repo_root / "mcpServer.json"
+	mcp_config_path = repo_root / "static" / "json" / "mcpServer.json"
 	if not mcp_config_path.exists():
 		print_err(f"未找到 MCP 配置文件: {mcp_config_path}")
 		return

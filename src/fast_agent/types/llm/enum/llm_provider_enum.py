@@ -8,3 +8,5 @@ class LLMProviderEnum(Enum):
     GOOGLE = "google"
     
     DEEPSEEK = "deepseek"
+
+    DOUBAO_SEED = "doubao_seed"

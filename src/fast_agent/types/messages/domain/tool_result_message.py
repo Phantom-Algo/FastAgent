@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import Literal, Any
+from pydantic import Field
+from typing import Literal, Union, List
 import uuid
 from ..base_message import BaseMessage
+from .content_part import BasePart
 
 class ToolResultMessage(BaseMessage):
     """ToolResultMessage 工具调用结果消息类"""
@@ -15,6 +16,6 @@ class ToolResultMessage(BaseMessage):
 
     name: str
 
-    content: Any
+    content: Union[str, List[BasePart]]
 
     is_error: bool = False
