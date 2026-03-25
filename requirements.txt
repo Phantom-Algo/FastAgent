@@ -1,3 +1,5 @@
 openai == 2.21.0
 python-dotenv == 1.2.2
 mcp == 1.26.0
+opensandbox-server == 0.1.7
+opensandbox-code-interpreter == 0.1.1

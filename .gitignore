@@ -8,6 +8,7 @@ __pycache__/
 
 /static/json
 /static/md
+/static/prompts
 
 .DS_Store
 
