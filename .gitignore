@@ -17,3 +17,5 @@ __pycache__/
 mcpServer.json
 
 *.sh
+
+fast_agent.egg-info/

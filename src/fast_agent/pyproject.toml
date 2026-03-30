@@ -1,0 +1,58 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fast-agent"
+version = "0.2.2"
+description = "基于FSM与生命周期的轻量级ReAct Agent框架"
+readme = { text = "FastAgent is a Python agent framework built around FSM-driven execution, lifecycle hooks, tool orchestration, MCP integration, sandbox execution, and snapshot-based resume flows.", content-type = "text/markdown" }
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+	{ name = "Phantom-Algo", email = "Luxiyan2628@gmail.com" },
+]
+keywords = ["agent", "llm", "mcp", "sandbox", "fsm", "openai", "framework"]
+classifiers = [
+	"Development Status :: 3 - Alpha",
+	"Intended Audience :: Developers",
+	"Programming Language :: Python :: 3",
+	"Programming Language :: Python :: 3.10",
+	"Programming Language :: Python :: 3.11",
+	"Programming Language :: Python :: 3.12",
+	"Programming Language :: Python :: 3.13",
+	"Topic :: Scientific/Engineering :: Artificial Intelligence",
+	"Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+	"openai==2.21.0",
+	"mcp==1.26.0",
+	"httpx>=0.27.0",
+	"pydantic>=2.0.0",
+	"opensandbox-server==0.1.7",
+	"opensandbox-code-interpreter==0.1.1",
+]
+
+[project.optional-dependencies]
+examples = [
+	"python-dotenv==1.2.2",
+]
+dev = [
+	"pytest>=8.0.0",
+]
+
+[project.urls]
+Homepage = "https://example.com/fast-agent"
+Repository = "https://github.com/example/fast-agent"
+Issues = "https://github.com/example/fast-agent/issues"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.package-dir]
+"" = ".."
+
+[tool.setuptools.packages.find]
+where = [".."]
+include = ["fast_agent*"]
+namespaces = false
