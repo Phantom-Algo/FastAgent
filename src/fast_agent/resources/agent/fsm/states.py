@@ -128,21 +128,33 @@ class LLMOutputState(BaseAgentFSMState):
         # 获取事件包装器（从 kwargs 中取得，由 Agent 注入）
         wrap_to_event = sd.lifespan_manager.get_kwargs().get("_wrap_to_event")
 
-        # 调用 Adapter 流式输出，逐个产出事件
-        llm_output = None
-        async for output in adapter.stream(
-            llm_config=sd.llm_config,
-            context=sd.context,
-        ):
-            # 将 Adapter 输出包装为事件
-            if wrap_to_event is not None:
-                event = wrap_to_event(output)
-                yield event
+        # 获取流式输出模式（从 kwargs 中取得，由 Agent 注入）
+        stream_mode = sd.lifespan_manager.get_kwargs().get("_stream_mode")
 
-            # 如果收到完整的 AssistantMessage，说明流式输出结束
-            if isinstance(output, AssistantMessage):
-                llm_output = output
-                break
+        llm_output = None
+        # 调用 Adapter 流式输出，逐个产出事件
+        if stream_mode == "chunk":
+            async for output in adapter.stream(
+                llm_config=sd.llm_config,
+                context=sd.context,
+            ):
+                # 将 Adapter 输出包装为事件
+                if wrap_to_event is not None:
+                    event = wrap_to_event(output)
+                    yield event
+
+                # 如果收到完整的 AssistantMessage，说明流式输出结束
+                if isinstance(output, AssistantMessage):
+                    llm_output = output
+                    break
+        # 调用 Adapter 非流式输出，直接获取完整的 AssistantMessage
+        elif stream_mode == "message":
+            llm_output = await adapter.invoke(
+                llm_config=sd.llm_config,
+                context=sd.context,
+            )
+            if wrap_to_event is not None:
+                yield wrap_to_event(llm_output)
 
         if llm_output is None:
             raise ValueError("LLM streaming terminated abnormally: no AssistantMessage received.")

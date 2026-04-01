@@ -103,23 +103,21 @@ class OpenAIAdapter(IAdapter):
         for tool_call in tool_calls:
             yield tool_call
 
-        final_message_payload: Dict[str, Any] = {
-            "finish_reason": finish_reason,
-            "model": response_model,
-        }
-        if reasoning_content:
-            final_message_payload["reasoning_content"] = reasoning_content
-        if content:
-            final_message_payload["content"] = content
-        if refusal:
-            final_message_payload["refusal"] = refusal
-        if tool_calls:
-            final_message_payload["tool_calls"] = tool_calls
+        yield self._build_assistant_message(
+            reasoning_content=reasoning_content,
+            content=content,
+            refusal=refusal,
+            tool_calls=tool_calls,
+            finish_reason=finish_reason,
+            model=response_model,
+        )
 
-        if len(final_message_payload) == 2:
-            final_message_payload["refusal"] = ""
+    async def invoke(self, llm_config: BaseLLMConfig, context: BaseContext) -> AssistantMessage:
+        client = self._build_client(llm_config)
+        request_payload = self._build_chat_completion_payload(llm_config, context, stream=False)
 
-        yield AssistantMessage(**final_message_payload)
+        completion = await client.chat.completions.create(**request_payload)
+        return self._build_assistant_message_from_completion(completion)
 
     def _build_client(self, llm_config: BaseLLMConfig) -> AsyncOpenAI:
         return AsyncOpenAI(
@@ -327,6 +325,86 @@ class OpenAIAdapter(IAdapter):
         if isinstance(parsed, dict):
             return parsed
         return {"value": parsed}
+
+    def _build_assistant_message_from_completion(self, completion: Any) -> AssistantMessage:
+        choices = getattr(completion, "choices", None) or []
+        if not choices:
+            raise ValueError("OpenAI chat completion returned no choices.")
+
+        choice = choices[0]
+        message = getattr(choice, "message", None)
+        if message is None:
+            raise ValueError("OpenAI chat completion returned no message payload.")
+
+        tool_calls: List[ToolCall] = []
+        for tool_call in getattr(message, "tool_calls", None) or []:
+            function = getattr(tool_call, "function", None)
+            if function is None:
+                continue
+
+            function_name = getattr(function, "name", None)
+            if not function_name:
+                continue
+
+            tool_calls.append(
+                ToolCall(
+                    tool_call_id=getattr(tool_call, "id", None),
+                    function_name=function_name,
+                    function_args=self._safe_json_loads(getattr(function, "arguments", None)),
+                )
+            )
+
+        usage = getattr(completion, "usage", None)
+        token_usage = getattr(usage, "total_tokens", None)
+
+        return self._build_assistant_message(
+            reasoning_content=getattr(message, "reasoning_content", None),
+            content=getattr(message, "content", None),
+            refusal=getattr(message, "refusal", None),
+            tool_calls=tool_calls,
+            finish_reason=self._normalize_finish_reason(getattr(choice, "finish_reason", None)),
+            token_usage=token_usage,
+            model=getattr(completion, "model", None),
+        )
+
+    def _build_assistant_message(
+        self,
+        *,
+        reasoning_content: Optional[str] = None,
+        content: Optional[str] = None,
+        refusal: Optional[str] = None,
+        tool_calls: Optional[List[ToolCall]] = None,
+        finish_reason: Literal["unknown", "stop", "length", "tool_calls", "content_filter", "balance", "error"] = "unknown",
+        token_usage: Optional[int] = None,
+        model: Optional[str] = None,
+    ) -> AssistantMessage:
+        message_payload: Dict[str, Any] = {
+            "finish_reason": finish_reason,
+            "token_usage": token_usage,
+            "model": model,
+        }
+
+        if reasoning_content:
+            message_payload["reasoning_content"] = reasoning_content
+        if content:
+            message_payload["content"] = content
+        if refusal:
+            message_payload["refusal"] = refusal
+        if tool_calls:
+            message_payload["tool_calls"] = tool_calls
+
+        has_message_body = any(
+            [
+                message_payload.get("reasoning_content"),
+                message_payload.get("content"),
+                message_payload.get("refusal"),
+                message_payload.get("tool_calls"),
+            ]
+        )
+        if not has_message_body:
+            raise ValueError("Assistant message is empty after OpenAI response normalization.")
+
+        return AssistantMessage(**message_payload)
 
     def _build_tool_calls_from_stream_buffer(self, tool_call_chunks: Dict[int, Dict[str, Any]]) -> List[ToolCall]:
         tool_calls: List[ToolCall] = []

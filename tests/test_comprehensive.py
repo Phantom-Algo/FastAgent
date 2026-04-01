@@ -150,13 +150,16 @@ test("Ask Human 工具 timeout=120", book_hotel.ask_human_policy.timeout == 120)
 class PaymentApproval(GuardPolicyHumanResponseSchema):
     approved: bool = False
 
+def process_payment_guard_func(response: PaymentApproval) -> bool:
+    return getattr(response, "approved", False)
+
 @tool_creator(
     tool_name="process_payment",
     tool_description="处理支付",
     guard_policy=GuardPolicy(
         info="需要审批",
         schema=PaymentApproval(),
-        guard_func=lambda resp: getattr(resp, "approved", False),
+        guard_func=process_payment_guard_func,
     ),
 )
 async def process_payment(amount: str) -> str:
