@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from copy import deepcopy
-from typing import AsyncGenerator, Dict, Literal, Optional
+from typing import AsyncGenerator, Dict, Literal, Optional, Union
 
 from ...types.agent.base_agent import BaseAgent
 from ...types.agent.event.base_event import BaseEvent
@@ -81,7 +81,7 @@ class Agent(BaseAgent):
 
     async def stream(
         self,
-        user_input: UserMessage,
+        user_input: Union[str, UserMessage],
         stream_mode: Literal["chunk", "message"] = "chunk",
     ) -> AsyncGenerator[BaseEvent, None]:
         """
@@ -103,6 +103,9 @@ class Agent(BaseAgent):
         kwargs["_stream_mode"] = stream_mode
 
         # 构建共享数据
+        if isinstance(user_input, str):
+            user_input = UserMessage(content=user_input)
+        
         shared_data = AgentFSMSharedData(
             llm_config=self.llm_config,
             context=self.context,
