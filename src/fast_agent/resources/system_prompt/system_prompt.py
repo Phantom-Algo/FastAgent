@@ -1,4 +1,4 @@
-from ...types.constant import DEFAULT_SYSTEM_PROMPT_CHIP_KEY
+from ...types.constant import DEFAULT_SYSTEM_PROMPT_CHIP_KEY, DEFAULT_SYSTEM_PROMPT_JSON_SCHEMA_CHIP_KEY
 from ...types.system_prompt.base_system_prompt import BaseSystemPrompt
 from ...types.system_prompt.domain.system_prompt_chip import (
 	SystemPromptChipSchema,
@@ -104,6 +104,27 @@ class SystemPrompt(BaseSystemPrompt):
 			self.chips.order.append(key)
 
 		return chip
+	
+	def add_json_schema(self, schema, pre_prompt = None, key = DEFAULT_SYSTEM_PROMPT_JSON_SCHEMA_CHIP_KEY):
+		"""
+		新增一个 JSON Schema 类型的 chip，content 根据传入的 Pydantic BaseModel schema 自动生成。
+
+		- key 默认为 DEFAULT_SYSTEM_PROMPT_JSON_SCHEMA_CHIP_KEY
+		- pre_prompt 可选，表示在 JSON Schema 内容前添加一段说明性文本
+		"""
+		if key in self.chips.chips:
+			raise ValueError(f"Error! Chip '{key}' already exists.")
+
+		json_schema_str = str(schema.model_json_schema())
+		content = f"{pre_prompt}\n\n{json_schema_str}" if pre_prompt else json_schema_str
+		chip = SystemPromptChipSchema(name=key, content=content)
+		self.chips.chips[key] = chip
+		if key not in self.chips.order:
+			# 默认为追加模式
+			self.chips.order.append(key)
+
+		return chip
+		
 
 	def insert(self, key: str, content: Union[str, SystemPromptChipSchema, dict], index: int) -> SystemPromptChipSchema:
 		"""

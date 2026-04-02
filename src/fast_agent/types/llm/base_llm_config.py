@@ -1,5 +1,8 @@
 from pydantic import BaseModel
-from typing import List
+from typing import List, Optional, TypedDict, Literal
+
+class ResponseFormat(TypedDict):
+    type: Literal["text", "json_object"]
 
 class BaseLLMConfig(BaseModel):
     model_name: str
@@ -25,3 +28,5 @@ class BaseLLMConfig(BaseModel):
     tool_choice: str = "auto"
 
     parallel_tool_calls: bool = True
+
+    response_format: Optional[ResponseFormat] = None

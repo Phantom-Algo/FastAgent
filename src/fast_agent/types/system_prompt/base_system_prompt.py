@@ -1,6 +1,7 @@
-from ..constant import DEFAULT_SYSTEM_PROMPT_CHIP_KEY
+from ..constant import DEFAULT_SYSTEM_PROMPT_CHIP_KEY, DEFAULT_SYSTEM_PROMPT_JSON_SCHEMA_CHIP_KEY
 from .domain.system_prompt_chip import SystemPromptChipSchema, SystemPromptChipsSchema
 from typing import Union, Optional, List, Literal
+from pydantic import BaseModel
 from enum import Enum
 from abc import ABC, abstractmethod
 
@@ -23,6 +24,10 @@ class BaseSystemPrompt(ABC):
 
     @abstractmethod
     def add(self, key: str, content: Union[str, SystemPromptChipSchema, dict]) -> SystemPromptChipSchema:
+        ...
+
+    @abstractmethod
+    def add_json_schema(self, schema: BaseModel, pre_prompt: Optional[str] = None, key: str = DEFAULT_SYSTEM_PROMPT_JSON_SCHEMA_CHIP_KEY) -> SystemPromptChipSchema:
         ...
 
     @abstractmethod

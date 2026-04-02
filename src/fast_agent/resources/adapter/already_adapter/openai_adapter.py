@@ -152,6 +152,9 @@ class OpenAIAdapter(IAdapter):
             payload["parallel_tool_calls"] = llm_config.parallel_tool_calls
             payload["tool_choice"] = self._convert_tool_choice(llm_config.tool_choice)
 
+        if llm_config.response_format:
+            payload["response_format"] = llm_config.response_format
+
         return payload
 
     def _convert_tool_choice(self, tool_choice: str) -> Any:
