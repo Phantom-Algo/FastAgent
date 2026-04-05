@@ -3,6 +3,7 @@ from .user_message import UserMessage
 from .tool_result_message import ToolResultMessage
 from .assistant_message_chunk import AssistantMessageChunk
 from .content_part import BasePart, TextPart, ImagePart
+from .message_round import MessageRound
 
 __all__ = [
     "AssistantMessage",
@@ -13,4 +14,5 @@ __all__ = [
     "BasePart",
     "TextPart",
     "ImagePart",
+    "MessageRound",
 ]

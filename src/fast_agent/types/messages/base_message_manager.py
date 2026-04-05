@@ -1,6 +1,8 @@
 from abc import ABC, abstractmethod
-from .base_message import BaseMessage
 from typing import List, Optional
+
+from .base_message import BaseMessage
+from .domain.message_round import MessageRound
 
 class BaseMessageManager(ABC):
 
@@ -45,6 +47,18 @@ class BaseMessageManager(ABC):
     @abstractmethod
     def get_last_message(self) -> Optional[BaseMessage]:
         ...
+
+    @abstractmethod
+    def get_round_count(self) -> int:
+        ...
+
+    @abstractmethod
+    def get_rounds(
+        self,
+        start_round_index: Optional[int] = None,
+        end_round_index: Optional[int] = None,
+    ) -> List[MessageRound]:
+        ...
     
 
 
@@ -55,4 +69,8 @@ class BaseMessageManager(ABC):
     
     @abstractmethod
     def update_messages(self, new_messages: List[BaseMessage]) -> None:
+        ...
+
+    @abstractmethod
+    def remove_rounds(self, start_round_index: int, end_round_index: int) -> List[MessageRound]:
         ...

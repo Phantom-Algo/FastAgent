@@ -15,6 +15,7 @@ def test_top_level_exports():
         GuardPolicyHumanResponseSchema,
         LLMConfig,
         LifespanManager,
+        MessageRound,
         Snapshot,
         UserMessage,
         __version__,
@@ -27,6 +28,7 @@ def test_top_level_exports():
     assert EmbeddingResponse.__name__ == "EmbeddingResponse"
     assert LLMConfig.__name__ == "LLMConfig"
     assert LifespanManager.__name__ == "LifespanManager"
+    assert MessageRound.__name__ == "MessageRound"
     assert Snapshot.__name__ == "Snapshot"
     assert UserMessage.__name__ == "UserMessage"
     assert GuardPolicy.__name__ == "GuardPolicy"
@@ -37,7 +39,7 @@ def test_top_level_exports():
 
 def test_subpackage_exports():
     from fast_agent.resources import EmbeddingConfig, OpenSandboxFactory, ToolManager
-    from fast_agent.types import BaseEmbeddingConfig, CommandOpts, EmbeddingVector, ISandBox, ToolResultMessage
+    from fast_agent.types import BaseEmbeddingConfig, CommandOpts, EmbeddingVector, ISandBox, MessageRound, ToolResultMessage
 
     assert EmbeddingConfig.__name__ == "EmbeddingConfig"
     assert OpenSandboxFactory.__name__ == "OpenSandboxFactory"
@@ -46,4 +48,5 @@ def test_subpackage_exports():
     assert CommandOpts.__name__ == "CommandOpts"
     assert EmbeddingVector.__name__ == "EmbeddingVector"
     assert ISandBox.__name__ == "ISandBox"
+    assert MessageRound.__name__ == "MessageRound"
     assert ToolResultMessage.__name__ == "ToolResultMessage"
