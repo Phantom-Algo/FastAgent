@@ -1,4 +1,6 @@
 # FastAgent - 轻量级 Agent Framework
+## 版本
+V0.2.4
 
 ## Quick Start
 
@@ -39,4 +41,27 @@ async def main():
 if __name__ == "__main__":
     import asyncio
     asyncio.run(main())
+```
+
+## Embeddings
+
+```python
+from fast_agent import AdapterFactory, EmbeddingConfig
+
+async def main():
+    embedding_config = EmbeddingConfig(
+        model_name="text-embedding-3-small",
+        api_key="your-api-key",
+        base_url="https://api.openai.com/v1",
+        provider="openai",
+    )
+
+    adapter = AdapterFactory.get_adapter_cls(embedding_config.provider)()
+    response = await adapter.embed(
+        embedding_config,
+        ["FastAgent", "Embeddings module"],
+    )
+
+    print(response.model)
+    print(len(response.data[0].embedding))
 ```

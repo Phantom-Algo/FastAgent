@@ -5,6 +5,8 @@ from openai import AsyncOpenAI
 
 from ....types.adapter.base_adapter import IAdapter
 from ....types.context.base_context import BaseContext
+from ....types.embeddings.base_embedding_config import BaseEmbeddingConfig
+from ....types.embeddings.domain import EmbeddingResponse, EmbeddingUsage, EmbeddingVector
 from ....types.llm.base_llm_config import BaseLLMConfig
 from ....types.messages.base_message_manager import BaseMessageManager
 from ....types.messages.domain import (
@@ -119,11 +121,43 @@ class OpenAIAdapter(IAdapter):
         completion = await client.chat.completions.create(**request_payload)
         return self._build_assistant_message_from_completion(completion)
 
-    def _build_client(self, llm_config: BaseLLMConfig) -> AsyncOpenAI:
-        return AsyncOpenAI(
-            api_key=llm_config.api_key,
-            base_url=llm_config.base_url,
+    async def embed(self, embedding_config: BaseEmbeddingConfig, inputs: Union[str, List[str]]) -> EmbeddingResponse:
+        client = self._build_client(embedding_config)
+        request_payload = self._build_embedding_payload(
+            embedding_config,
+            self._normalize_embedding_inputs(inputs),
         )
+
+        response = await client.embeddings.create(**request_payload)
+        return self._build_embedding_response(response)
+
+    def _build_client(self, config: Union[BaseLLMConfig, BaseEmbeddingConfig]) -> AsyncOpenAI:
+        return AsyncOpenAI(
+            api_key=config.api_key,
+            base_url=config.base_url,
+        )
+
+    def _build_embedding_payload(
+        self,
+        embedding_config: BaseEmbeddingConfig,
+        inputs: Union[str, List[str]],
+    ) -> Dict[str, Any]:
+        payload: Dict[str, Any] = {
+            "model": embedding_config.model_name,
+            "input": inputs,
+            "encoding_format": embedding_config.encoding_format,
+        }
+
+        if embedding_config.dimensions is not None:
+            payload["dimensions"] = embedding_config.dimensions
+
+        if embedding_config.user:
+            payload["user"] = embedding_config.user
+
+        if embedding_config.extra_body:
+            payload["extra_body"] = embedding_config.extra_body
+
+        return payload
 
     def _build_chat_completion_payload(
         self,
@@ -154,6 +188,9 @@ class OpenAIAdapter(IAdapter):
 
         if llm_config.response_format:
             payload["response_format"] = llm_config.response_format
+
+        if llm_config.extra_body:
+            payload["extra_body"] = llm_config.extra_body
 
         return payload
 
@@ -328,6 +365,47 @@ class OpenAIAdapter(IAdapter):
         if isinstance(parsed, dict):
             return parsed
         return {"value": parsed}
+
+    def _normalize_embedding_inputs(self, inputs: Union[str, List[str]]) -> Union[str, List[str]]:
+        if isinstance(inputs, str):
+            return inputs
+
+        if not isinstance(inputs, list):
+            raise TypeError("Embedding inputs must be a string or a list of strings.")
+
+        if not inputs:
+            raise ValueError("Embedding inputs must not be empty.")
+
+        if any(not isinstance(item, str) for item in inputs):
+            raise TypeError("Embedding input list must contain only strings.")
+
+        return inputs
+
+    def _build_embedding_response(self, response: Any) -> EmbeddingResponse:
+        data = [
+            EmbeddingVector(
+                object=getattr(item, "object", "embedding"),
+                index=getattr(item, "index", index),
+                embedding=getattr(item, "embedding"),
+            )
+            for index, item in enumerate(getattr(response, "data", None) or [])
+            if getattr(item, "embedding", None) is not None
+        ]
+
+        usage_payload = getattr(response, "usage", None)
+        usage = None
+        if usage_payload is not None:
+            usage = EmbeddingUsage(
+                prompt_tokens=getattr(usage_payload, "prompt_tokens", 0) or 0,
+                total_tokens=getattr(usage_payload, "total_tokens", 0) or 0,
+            )
+
+        return EmbeddingResponse(
+            object=getattr(response, "object", "list"),
+            data=data,
+            model=getattr(response, "model", None),
+            usage=usage,
+        )
 
     def _build_assistant_message_from_completion(self, completion: Any) -> AssistantMessage:
         choices = getattr(completion, "choices", None) or []

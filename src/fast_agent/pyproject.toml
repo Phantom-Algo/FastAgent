@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fast-agent"
-version = "0.2.2"
+version = "0.2.4"
 description = "基于FSM与生命周期的轻量级ReAct Agent框架"
 readme = { text = "FastAgent is a Python agent framework built around FSM-driven execution, lifecycle hooks, tool orchestration, MCP integration, sandbox execution, and snapshot-based resume flows.", content-type = "text/markdown" }
 requires-python = ">=3.10"

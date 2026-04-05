@@ -1,8 +1,14 @@
 from pydantic import BaseModel
-from typing import List, Optional, TypedDict, Literal
+from typing import List, Optional, TypedDict, Literal, Union, Any
 
 class ResponseFormat(TypedDict):
     type: Literal["text", "json_object"]
+
+class ExtraBodyThinking(TypedDict):
+    type: Literal["disabled", "enabled", "auto"]
+
+class ExtraBody(TypedDict):
+    thinking: Union[ExtraBodyThinking, Any]
 
 class BaseLLMConfig(BaseModel):
     model_name: str
@@ -30,3 +36,5 @@ class BaseLLMConfig(BaseModel):
     parallel_tool_calls: bool = True
 
     response_format: Optional[ResponseFormat] = None
+
+    extra_body: Optional[Union[ExtraBody, Any]] = None

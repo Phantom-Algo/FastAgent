@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
+from typing import AsyncGenerator, List, Union
+
 from ..llm.base_llm_config import BaseLLMConfig
 from ..context.base_context import BaseContext
+from ..embeddings.base_embedding_config import BaseEmbeddingConfig
+from ..embeddings.domain import EmbeddingResponse
 from ..messages.domain import AssistantMessage, ToolCall, AssistantMessageChunk
-from typing import AsyncGenerator, Union
 
 class IAdapter(ABC):
     """
@@ -33,5 +36,19 @@ class IAdapter(ABC):
 
         返回值：
         - AssistantMessage: 最终的助手消息
+        """
+        pass
+
+    @abstractmethod
+    async def embed(self, embedding_config: BaseEmbeddingConfig, inputs: Union[str, List[str]]) -> EmbeddingResponse:
+        """
+        文本向量化接口
+
+        参数列表：
+        - embedding_config: EmbeddingConfig 向量模型配置
+        - inputs: 单条文本或批量文本
+
+        返回值：
+        - EmbeddingResponse: 统一的向量化响应
         """
         pass

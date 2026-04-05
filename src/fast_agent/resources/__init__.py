@@ -28,6 +28,7 @@ from .agent.lifespan.default_lifespan import (
 from .agent.lifespan.lifespan_manager import LifespanManager
 from .agent.snapshot.snapshot import Snapshot
 from .context.context import Context
+from .embeddings.embedding_config import EmbeddingConfig
 from .llm.llm_config import LLMConfig
 from .mcp.mcp_adapter import MCPAdapter
 from .mcp.mcp_manager import MCPManager
@@ -64,6 +65,7 @@ __all__ = [
 	"DefaultBeforeExecuteTools",
 	"DefaultExecutingTools",
 	"DoubaoSeedAdapter",
+	"EmbeddingConfig",
 	"EventChannel",
 	"GuardTriggeredEvent",
 	"InterruptEvent",

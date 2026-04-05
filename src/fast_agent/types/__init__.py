@@ -41,7 +41,9 @@ from .agent.lifespan.dto.lifespan_dto import (
 from .agent.lifespan.enum.lifespan_type_enum import LifespanType
 from .agent.snapshot.base_snapshot import BaseSnapshot
 from .context.base_context import BaseContext
-from .llm.base_llm_config import BaseLLMConfig, ResponseFormat
+from .embeddings.base_embedding_config import BaseEmbeddingConfig
+from .embeddings.domain import EmbeddingResponse, EmbeddingUsage, EmbeddingVector
+from .llm.base_llm_config import BaseLLMConfig, ResponseFormat, ExtraBody, ExtraBodyThinking
 from .llm.enum.llm_provider_enum import LLMProviderEnum
 from .mcp.base_mcp_adapter import BaseMCPAdapter
 from .mcp.base_mcp_manager import BaseMCPManager
@@ -112,6 +114,7 @@ __all__ = [
 	"BaseAskHumanChannel",
 	"BaseChunk",
 	"BaseContext",
+	"BaseEmbeddingConfig",
 	"BaseEvent",
 	"BaseEventChannel",
 	"BaseEventMetadata",
@@ -140,6 +143,11 @@ __all__ = [
 	"ExecutionLogs",
 	"ExecutionResult",
 	"ExecutionResultHandler",
+	"EmbeddingResponse",
+	"EmbeddingUsage",
+	"EmbeddingVector",
+    "ExtraBody",
+	"ExtraBodyThinking",
 	"GuardPolicy",
 	"GuardPolicyHumanResponseSchema",
 	"IAfterExecuteTools",

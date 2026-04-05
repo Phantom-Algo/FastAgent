@@ -9,6 +9,8 @@ def test_top_level_exports():
     from fast_agent import (
         Agent,
         Context,
+        EmbeddingConfig,
+        EmbeddingResponse,
         GuardPolicy,
         GuardPolicyHumanResponseSchema,
         LLMConfig,
@@ -21,6 +23,8 @@ def test_top_level_exports():
 
     assert Agent.__name__ == "Agent"
     assert Context.__name__ == "Context"
+    assert EmbeddingConfig.__name__ == "EmbeddingConfig"
+    assert EmbeddingResponse.__name__ == "EmbeddingResponse"
     assert LLMConfig.__name__ == "LLMConfig"
     assert LifespanManager.__name__ == "LifespanManager"
     assert Snapshot.__name__ == "Snapshot"
@@ -32,11 +36,14 @@ def test_top_level_exports():
 
 
 def test_subpackage_exports():
-    from fast_agent.resources import OpenSandboxFactory, ToolManager
-    from fast_agent.types import CommandOpts, ISandBox, ToolResultMessage
+    from fast_agent.resources import EmbeddingConfig, OpenSandboxFactory, ToolManager
+    from fast_agent.types import BaseEmbeddingConfig, CommandOpts, EmbeddingVector, ISandBox, ToolResultMessage
 
+    assert EmbeddingConfig.__name__ == "EmbeddingConfig"
     assert OpenSandboxFactory.__name__ == "OpenSandboxFactory"
     assert ToolManager.__name__ == "ToolManager"
+    assert BaseEmbeddingConfig.__name__ == "BaseEmbeddingConfig"
     assert CommandOpts.__name__ == "CommandOpts"
+    assert EmbeddingVector.__name__ == "EmbeddingVector"
     assert ISandBox.__name__ == "ISandBox"
     assert ToolResultMessage.__name__ == "ToolResultMessage"

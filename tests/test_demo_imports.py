@@ -12,16 +12,27 @@ from fast_agent.resources.agent.event.events import (
 )
 from fast_agent.resources.agent.snapshot.snapshot import Snapshot
 from fast_agent.resources.context.context import Context
+from fast_agent.resources.embeddings.embedding_config import EmbeddingConfig
 from fast_agent.resources.llm.llm_config import LLMConfig
 from fast_agent.resources.tool.tool_creator import tool_creator
 from fast_agent.types.agent.lifespan.base_lifespan import IExecutingTools
 from fast_agent.types.agent.lifespan.dto.lifespan_dto import ExecutingToolsRequest, ExecutingToolsResponse
+from fast_agent.types.embeddings.domain.embedding_response import EmbeddingResponse
 from fast_agent.types.messages.domain.user_message import UserMessage
 from fast_agent.types.tool.base_tool_runtime import BaseToolRuntime
 from fast_agent.types.tool.domain.ask_human_policy import AskHumanPolicy
 from fast_agent.types.tool.domain.guard_policy import GuardPolicy, GuardPolicyHumanResponseSchema
 
 print("All imports OK")
+
+embedding_config = EmbeddingConfig(
+    model_name="text-embedding-3-small",
+    api_key="test",
+    base_url="https://api.openai.com/v1",
+    provider="openai",
+)
+print(f"Embedding config loaded: {embedding_config.model_name}")
+print(f"Embedding response type: {EmbeddingResponse.__name__}")
 
 # Test tool creation
 @tool_creator(
