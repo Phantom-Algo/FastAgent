@@ -1,6 +1,6 @@
 # FastAgent - 轻量级 Agent Framework
 ## 版本
-V0.2.4
+V0.2.5
 
 ## Quick Start
 
