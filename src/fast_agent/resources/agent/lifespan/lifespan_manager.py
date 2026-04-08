@@ -9,6 +9,7 @@ LifespanManager 是 BaseLifespanManager 的具体实现，负责：
 from __future__ import annotations
 
 from typing import Any, Dict, Literal, Optional, Union
+from copy import deepcopy
 
 from ....types.agent.lifespan.base_lifespan import (
     IAfterExecuteTools,
@@ -41,6 +42,21 @@ _TYPE_TO_ATTR: Dict[LifespanType, str] = {
     LifespanType.EXECUTING_TOOLS: "executing_tools",
     LifespanType.AFTER_EXECUTE_TOOLS: "after_execute_tools",
 }
+
+
+def _safe_deepcopy_value(value: Any, memo: Optional[dict] = None) -> Any:
+    try:
+        return deepcopy(value, memo or {})
+    except Exception:
+        return value
+
+
+def _safe_deepcopy_dict(data: Dict[str, Any], memo: Optional[dict] = None) -> Dict[str, Any]:
+    copied: Dict[str, Any] = {}
+    for key, value in data.items():
+        copied_key = _safe_deepcopy_value(key, memo)
+        copied[copied_key] = _safe_deepcopy_value(value, memo)
+    return copied
 
 
 class LifespanManager(BaseLifespanManager):
@@ -83,6 +99,19 @@ class LifespanManager(BaseLifespanManager):
         self.executing_tools: IExecutingTools = executing_tools or DefaultExecutingTools()
         self.after_execute_tools: IAfterExecuteTools = after_execute_tools or DefaultAfterExecuteTools()
         self.kwargs: Dict[str, Any] = kwargs if kwargs is not None else {}
+
+    def __deepcopy__(self, memo):
+        copied = self.__class__.__new__(self.__class__)
+        memo[id(self)] = copied
+
+        copied.after_finish = self.after_finish
+        copied.after_user_input = self.after_user_input
+        copied.after_llm_output = self.after_llm_output
+        copied.before_execute_tools = self.before_execute_tools
+        copied.executing_tools = self.executing_tools
+        copied.after_execute_tools = self.after_execute_tools
+        copied.kwargs = _safe_deepcopy_dict(self.kwargs, memo)
+        return copied
 
     # ===== kwargs 管理 =====
 

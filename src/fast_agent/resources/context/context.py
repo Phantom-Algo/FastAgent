@@ -12,6 +12,21 @@ from typing import Optional, Dict, Any, Union, List
 from copy import deepcopy
 
 
+def _safe_deepcopy_value(value: Any, memo: Optional[dict] = None) -> Any:
+    try:
+        return deepcopy(value, memo or {})
+    except Exception:
+        return value
+
+
+def _safe_deepcopy_dict(data: Dict[str, Any], memo: Optional[dict] = None) -> Dict[str, Any]:
+    copied: Dict[str, Any] = {}
+    for key, value in data.items():
+        copied_key = _safe_deepcopy_value(key, memo)
+        copied[copied_key] = _safe_deepcopy_value(value, memo)
+    return copied
+
+
 class Context(BaseContext):
 
     def __init__(
@@ -61,6 +76,18 @@ class Context(BaseContext):
             )
 
         self.tool_inject_params = dict(tool_inject_params or {})
+
+    def __deepcopy__(self, memo):
+        copied = self.__class__.__new__(self.__class__)
+        memo[id(self)] = copied
+
+        copied.system_prompt = deepcopy(self.system_prompt, memo)
+        copied.work_message_manager = deepcopy(self.work_message_manager, memo)
+        copied.raw_message_manager = deepcopy(self.raw_message_manager, memo)
+        copied.subsequent_message_manager = deepcopy(self.subsequent_message_manager, memo)
+        copied.tool_manager = deepcopy(self.tool_manager, memo)
+        copied.tool_inject_params = _safe_deepcopy_dict(self.tool_inject_params, memo)
+        return copied
 
     def get_system_prompt(self) -> BaseSystemPrompt:
         return self.system_prompt
